@@ -16,19 +16,11 @@ _Warning: Not for developers who enjoy manual boilerplate and inconsistent code 
 
 ## Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/iamEtornam/spectra.git
-cd spectra
-
-# Install dependencies
-dart pub get
-
-# (Optional) Activate globally
-dart pub global activate --source path .
+```
+dart pub global activate spectra_cli
 ```
 
-Verify: `spectra --help`
+Use it: `spectra`
 
 ---
 

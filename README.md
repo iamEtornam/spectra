@@ -1,8 +1,8 @@
 # Spectra
 
-**A Multi-LLM Spec-Driven Development System for Dart & Flutter.**
+**A Multi-LLM Spec-Driven Development System written in Dart**
 
-![Spectra UI](assets/file.svg)
+![Spectra UI](assets/file.png)
 
 AI-driven development often leads to technical debt, inconsistent patterns, and "AI hallucinations" that break your build.
 

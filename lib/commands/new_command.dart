@@ -1,5 +1,8 @@
 import 'dart:io';
+
 import 'package:interact/interact.dart';
+import 'package:mason_logger/mason_logger.dart';
+
 import 'base_command.dart';
 
 class NewCommand extends SpectraCommand {
@@ -12,6 +15,15 @@ class NewCommand extends SpectraCommand {
 
   @override
   Future<void> run() async {
+    logger.info(lightCyan.wrap('''
+  ███████╗██████╗ ███████╗ ██████╗████████╗██████╗  █████╗ 
+  ██╔════╝██╔══██╗██╔════╝██╔════╝╚══██╔══╝██╔══██╗██╔══██╗
+  ███████╗██████╔╝█████╗  ██║        ██║   ██████╔╝███████║
+  ╚════██║██╔═══╝ ██╔══╝  ██║        ██║   ██╔══██╗██╔══██║
+  ███████║██║     ███████╗╚██████╗   ██║   ██║  ██║██║  ██║
+  ╚══════╝╚═╝     ╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
+''')!);
+
     logger.info('Welcome to Spectra! Let\'s set up your project.');
 
     final projectName = Select(

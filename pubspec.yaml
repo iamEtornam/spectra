@@ -1,4 +1,4 @@
-name: spectra
+name: spectra_cli
 description: A Multi-LLM Spec-Driven Development System.
 version: 0.1.0
 homepage: https://github.com/iamEtornam/spectra

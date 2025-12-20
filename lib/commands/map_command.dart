@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:interact/interact.dart';
-import 'package:spectra/services/llm_service.dart';
+import 'package:spectra_cli/services/llm_service.dart';
 import 'base_command.dart';
 
 class MapCommand extends SpectraCommand {

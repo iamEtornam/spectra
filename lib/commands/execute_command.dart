@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:spectra/services/llm_service.dart';
-import 'package:spectra/utils/state_manager.dart';
+import 'package:spectra_cli/services/llm_service.dart';
+import 'package:spectra_cli/utils/state_manager.dart';
 import 'package:xml/xml.dart';
 
 import 'base_command.dart';

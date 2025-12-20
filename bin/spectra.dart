@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
-import 'package:spectra/commands/config_command.dart';
-import 'package:spectra/commands/execute_command.dart';
-import 'package:spectra/commands/map_command.dart';
-import 'package:spectra/commands/new_command.dart';
-import 'package:spectra/commands/plan_command.dart';
-import 'package:spectra/commands/progress_command.dart';
-import 'package:spectra/commands/resume_command.dart';
+import 'package:spectra_cli/commands/config_command.dart';
+import 'package:spectra_cli/commands/execute_command.dart';
+import 'package:spectra_cli/commands/map_command.dart';
+import 'package:spectra_cli/commands/new_command.dart';
+import 'package:spectra_cli/commands/plan_command.dart';
+import 'package:spectra_cli/commands/progress_command.dart';
+import 'package:spectra_cli/commands/resume_command.dart';
 
 Future<void> main(List<String> arguments) async {
   final logger = Logger();

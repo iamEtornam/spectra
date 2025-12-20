@@ -35,9 +35,9 @@ Future<void> main(List<String> arguments) async {
   ███████║██║     ███████╗╚██████╗   ██║   ██║  ██║██║  ██║
   ╚══════╝╚═╝     ╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
 ''')!);
-      logger.info('Spectra - A Multi-LLM Spec-Driven Development System\n');
 
       if (arguments.isEmpty) {
+        logger.info('Spectra - A Multi-LLM Spec-Driven Development System\n');
         logger.info('Usage: spectra <command> [arguments]\n');
         logger.info('Available Commands:');
         logger.info('  new           Initialize a new project');

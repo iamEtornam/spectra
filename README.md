@@ -2,7 +2,7 @@
 
 **A Multi-LLM Spec-Driven Development System for Dart & Flutter.**
 
-![Spectra UI](https://raw.githubusercontent.com/glittercowboy/get-shit-done/main/assets/terminal.svg)
+![Spectra UI](assets/file.svg)
 
 AI-driven development often leads to technical debt, inconsistent patterns, and "AI hallucinations" that break your build.
 
@@ -18,7 +18,7 @@ _Warning: Not for developers who enjoy manual boilerplate and inconsistent code 
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/spectra.git
+git clone https://github.com/iamEtornam/spectra.git
 cd spectra
 
 # Install dependencies

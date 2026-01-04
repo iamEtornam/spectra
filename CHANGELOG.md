@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Refactored implementation logic to be modular and reusable across single-agent and multi-agent execution.
+- Renamed `docs` directory to `doc` to follow Dart Pub layout conventions.
 
 ## [0.1.1] - 2025-12-20
 

@@ -1,12 +1,14 @@
 import 'dart:async';
+
 import 'package:mason_logger/mason_logger.dart';
+
+import '../agents/base_agent.dart';
+import '../agents/mayor_agent.dart';
+import '../agents/witness_agent.dart';
+import '../agents/worker_agent.dart';
 import '../models/agent.dart';
 import '../models/convoy.dart';
 import '../models/task.dart';
-import '../agents/base_agent.dart';
-import '../agents/mayor_agent.dart';
-import '../agents/worker_agent.dart';
-import '../agents/witness_agent.dart';
 import '../services/llm_service.dart';
 
 class OrchestratorService {
@@ -21,7 +23,7 @@ class OrchestratorService {
 
   Future<void> start({int workerCount = 2}) async {
     if (_isRunning) return;
-    
+
     final provider = await _llmService.getPreferredProvider();
     if (provider == null) {
       logger.err('No LLM provider configured. Cannot start orchestrator.');
@@ -62,7 +64,7 @@ class OrchestratorService {
         timer.cancel();
         return;
       }
-      
+
       // Execute each agent's step sequentially or in parallel
       // For now, sequential to keep logs clean
       for (final agent in _agents) {
@@ -92,10 +94,12 @@ class OrchestratorService {
         .where((c) => c.status != 'completed')
         .expand((c) => c.tasks)
         .where((t) {
-          // Check if any agent is currently working on this task
-          return !_agents.any((a) => a.currentTaskId == t.id && (a.status == AgentStatus.working || a.status == AgentStatus.completed));
-        })
-        .toList();
+      // Check if any agent is currently working on this task
+      return !_agents.any((a) =>
+          a.currentTaskId == t.id &&
+          (a.status == AgentStatus.working ||
+              a.status == AgentStatus.completed));
+    }).toList();
   }
 
   List<SpectraAgent> getAllAgents() => List.unmodifiable(_agents);
@@ -104,4 +108,3 @@ class OrchestratorService {
     return _agents.where((a) => a.role == role).toList();
   }
 }
-

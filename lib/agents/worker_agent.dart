@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import '../models/agent.dart';
 import '../models/task.dart';
 import 'base_agent.dart';
@@ -49,7 +50,8 @@ void main() {}
       final fileContents = _parseFileContents(response);
 
       if (fileContents.isEmpty) {
-        logger.warn('[Agent $id] No file contents generated for Task #${task.id}');
+        logger.warn(
+            '[Agent $id] No file contents generated for Task #${task.id}');
         updateStatus(AgentStatus.idle);
         _activeTask = null;
         return;
@@ -68,7 +70,7 @@ void main() {}
       // In a real orchestrator, the Mayor or Service would handle Git/State updates
       // for coordination, but for now we keep it here or emit results.
       logger.success('[Agent $id] Completed Task #${task.id}');
-      
+
       updateStatus(AgentStatus.completed);
       _activeTask = null;
     } catch (e) {
@@ -107,4 +109,3 @@ void main() {}
     return contents;
   }
 }
-

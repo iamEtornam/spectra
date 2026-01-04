@@ -1,0 +1,17 @@
+{
+  "name": "Spectra",
+  "description": "Multi-LLM Spec-Driven Development System",
+  "logo": "assets/file.png",
+  "theme": "#00BCD4",
+  "sidebar": [
+    ["Home", "/"],
+    ["Getting Started", "/getting-started"],
+    ["Core Concepts", "/core-concepts"],
+    ["CLI Commands", "/commands"],
+    ["Multi-Agent Orchestrator", "/orchestrator"]
+  ],
+  "navigation": [
+    { "title": "GitHub", "url": "https://github.com/iamEtornam/spectra" }
+  ]
+}
+

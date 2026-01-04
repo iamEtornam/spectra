@@ -9,6 +9,7 @@ import 'package:spectra_cli/commands/new_command.dart';
 import 'package:spectra_cli/commands/plan_command.dart';
 import 'package:spectra_cli/commands/progress_command.dart';
 import 'package:spectra_cli/commands/resume_command.dart';
+import 'package:spectra_cli/commands/start_command.dart';
 
 Future<void> main(List<String> arguments) async {
   final logger = Logger();
@@ -20,7 +21,8 @@ Future<void> main(List<String> arguments) async {
     ..addCommand(PlanCommand(logger: logger))
     ..addCommand(ExecuteCommand(logger: logger))
     ..addCommand(ProgressCommand(logger: logger))
-    ..addCommand(ResumeCommand(logger: logger));
+    ..addCommand(ResumeCommand(logger: logger))
+    ..addCommand(StartCommand(logger: logger));
 
   try {
     if (arguments.isEmpty ||
@@ -44,6 +46,7 @@ Future<void> main(List<String> arguments) async {
         logger.info('  map           Analyze an existing repository');
         logger.info('  plan          Generate implementation tasks');
         logger.info('  execute       Run the execution engine');
+        logger.info('  start         Start the multi-agent orchestrator');
         logger.info('  config        Configure API keys and models');
         logger.info('  progress      Show project status');
         logger.info('  resume        Continue from last task');

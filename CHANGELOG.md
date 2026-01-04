@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-01-04
+
+### Added
+- **Multi-Agent Orchestrator**: Introduced a new orchestration layer inspired by Gastown.
+  - **Mayor Agent**: New role for task coordination and assignment.
+  - **Worker Agent**: Parallelized execution engine for faster implementation.
+  - **Witness Agent**: Health monitoring role to detect stuck or timed-out agents.
+- **`spectra start` Command**: New CLI command to launch the orchestrator with configurable worker counts (`--workers`).
+- **Convoy System**: Batch management for grouped tasks to enable better parallel orchestration.
+
+### Changed
+- Refactored implementation logic to be modular and reusable across single-agent and multi-agent execution.
+
 ## [0.1.1] - 2025-12-20
 
 ### Added

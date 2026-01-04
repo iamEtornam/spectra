@@ -61,12 +61,16 @@ spectra map
 ```
 Scans your existing repository to extract architecture, naming conventions, and tech stack into the `.spectra/` context. Spectra learns your style before it writes a single line of code.
 
-### 4. Plan & Execute
+### 4. Plan & Orchestrate
 ```bash
 spectra plan "Auth Implementation"
-spectra execute
+spectra start --workers 3
 ```
-The Planner breaks your roadmap into 2–5 atomic tasks in **XML format**. The Execution Engine then parses these tasks, applies file changes, runs verification, and commits to Git.
+The Planner breaks your roadmap into 2–5 atomic tasks. While `spectra execute` runs tasks sequentially, **`spectra start`** launches a Multi-Agent Orchestrator inspired by *Gastown*.
+
+- **Mayor Agent**: Coordinates task assignment.
+- **Worker Agents**: Parallel executors that implement tasks.
+- **Witness Agent**: Monitors health and detects stuck workers.
 
 ---
 
@@ -94,7 +98,8 @@ When `STATE.md` grows too large, Spectra automatically archives older decisions 
 | `new`      | Interactive onboarding to start a new project           |
 | `map`      | Analyze existing repository architecture (Brownfield)   |
 | `plan`     | Break a roadmap phase into atomic XML tasks            |
-| `execute`  | Parse plans, apply changes, and commit to Git           |
+| `execute`  | Parse plans, apply changes, and commit to Git (Sequential) |
+| `start`    | Launch the Multi-Agent Orchestrator (Parallel execution) |
 | `progress` | Visual dashboard of completed vs. upcoming phases       |
 | `resume`   | Detect interrupted states and pick up where you left off|
 | `config`   | Set up API keys for Gemini, Claude, OpenAI, Grok, and DeepSeek |

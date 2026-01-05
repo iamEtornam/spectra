@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:mason_logger/mason_logger.dart';
+
 import '../models/agent.dart';
 import 'base_command.dart';
 
@@ -57,10 +59,12 @@ class ProgressCommand extends SpectraCommand {
           .map((j) => AgentState.fromJson(j))
           .toList();
 
-      logger.info(lightCyan.wrap('--- LIVE AGENT STATUS ---')!);
+      const header = '--- LIVE AGENT STATUS ---';
+      logger.info(lightCyan.wrap(header) ?? header);
       for (final agent in agents) {
         final color = _getStatusColor(agent.status);
-        final statusStr = color.wrap(agent.status.name.toUpperCase())!;
+        final statusName = agent.status.name.toUpperCase();
+        final statusStr = color.wrap(statusName) ?? statusName;
         final taskInfo = agent.currentTaskId != null
             ? ' (Task: ${agent.currentTaskId})'
             : '';

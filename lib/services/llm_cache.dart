@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:crypto/crypto.dart';
 
 /// LRU Cache for LLM responses to reduce API costs and improve response times.
@@ -62,10 +63,20 @@ class LLMCache {
       {List<String>? context}) {
     final key = _generateKey(prompt, model, context);
 
-    // Evict if at capacity
-    while (_cache.length >= maxEntries && _accessOrder.isNotEmpty) {
-      final oldest = _accessOrder.removeAt(0);
-      _cache.remove(oldest);
+    // Check if this is an update to an existing entry
+    final isUpdate = _cache.containsKey(key);
+
+    // Remove existing key from access order to prevent duplicates
+    if (isUpdate) {
+      _accessOrder.remove(key);
+    }
+
+    // Evict oldest if at capacity (only for new entries)
+    if (!isUpdate) {
+      while (_cache.length >= maxEntries && _accessOrder.isNotEmpty) {
+        final oldest = _accessOrder.removeAt(0);
+        _cache.remove(oldest);
+      }
     }
 
     _cache[key] = _CacheEntry(

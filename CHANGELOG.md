@@ -33,11 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - LLM provider interface fully documented.
 - **Web Dashboard**: Real-time browser-based agent monitoring UI.
   - New `spectra dashboard` command to launch the web server.
-  - Built with [Jaspr](https://docs.jaspr.site) for Dart-native SSR components.
-  - Live agent status with role indicators and task visibility.
+  - Built with [Jaspr](https://docs.jaspr.site) for Dart-native server-side rendering.
+  - Component-based architecture: `DashboardApp`, `AgentCard`, `ProgressCard`.
+  - Live agent status with role indicators (Mayor 👔, Worker 🔧, Witness 👁️).
   - Project progress tracking with visual progress bar.
   - Auto-refresh every 2 seconds.
   - Modern dark theme with responsive design.
+  - Configurable port via `--port` flag.
 
 ### Changed
 - Replaced `Timer.periodic` with proper async loop in orchestrator to prevent race conditions.
@@ -45,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All LLM providers now use `HttpUtils` for consistent timeout/retry behavior.
 - `SpectraCommand` now extends `Command<void>` for type safety.
 - Added `analysis_options.yaml` with strict linting rules.
+
+### Dependencies
+- Added `jaspr` ^0.18.0 for web dashboard SSR.
+- Added `shelf` ^1.4.1 and `shelf_router` ^1.1.4 for HTTP server.
+- Added `crypto` ^3.0.3 for cache key hashing.
+- Added `mocktail` ^1.0.4 (dev) for testing.
 
 ### Fixed
 - Fixed orchestrator race condition where agent steps could execute concurrently.

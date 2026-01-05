@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:spectra_cli/commands/config_command.dart';
+import 'package:spectra_cli/commands/dashboard_command.dart';
 import 'package:spectra_cli/commands/execute_command.dart';
 import 'package:spectra_cli/commands/map_command.dart';
 import 'package:spectra_cli/commands/new_command.dart';
@@ -13,7 +14,7 @@ import 'package:spectra_cli/commands/start_command.dart';
 
 Future<void> main(List<String> arguments) async {
   final logger = Logger();
-  final runner = CommandRunner(
+  final runner = CommandRunner<void>(
       'spectra', 'Spectra - A Multi-LLM Spec-Driven Development System')
     ..addCommand(ConfigCommand(logger: logger))
     ..addCommand(NewCommand(logger: logger))
@@ -22,7 +23,8 @@ Future<void> main(List<String> arguments) async {
     ..addCommand(ExecuteCommand(logger: logger))
     ..addCommand(ProgressCommand(logger: logger))
     ..addCommand(ResumeCommand(logger: logger))
-    ..addCommand(StartCommand(logger: logger));
+    ..addCommand(StartCommand(logger: logger))
+    ..addCommand(DashboardCommand(logger: logger));
 
   try {
     if (arguments.isEmpty ||
@@ -47,6 +49,7 @@ Future<void> main(List<String> arguments) async {
         logger.info('  plan          Generate implementation tasks');
         logger.info('  execute       Run the execution engine');
         logger.info('  start         Start the multi-agent orchestrator');
+        logger.info('  dashboard     Launch web UI for agent monitoring');
         logger.info('  config        Configure API keys and models');
         logger.info('  progress      Show project status');
         logger.info('  resume        Continue from last task');

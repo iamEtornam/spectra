@@ -30,10 +30,26 @@ The **Multi-Agent Orchestrator**. Launches a team of agents to process `PLAN.md`
 **Options**:
 - `--workers, -w`: Number of worker agents to spawn (default: `2`).
 
+## `dashboard`
+**Usage**: `spectra dashboard [options]`
+
+Launches a web-based monitoring dashboard at `http://localhost:3000`. This provides a real-time visual interface for monitoring agent activity, project progress, and system health.
+
+**Options**:
+- `--port, -p`: Port to run the dashboard on (default: `3000`).
+
+**Features**:
+- Live agent status with role indicators (Mayor, Worker, Witness).
+- Task assignment visibility.
+- Project progress bar.
+- Auto-refresh every 2 seconds.
+
 ## `progress`
 **Usage**: `spectra progress`
 
-Provides a visual dashboard of your project's status, showing completed vs. upcoming phases based on your roadmap and project state.
+Provides a CLI dashboard of your project's status, showing completed vs. upcoming phases based on your roadmap and project state. 
+
+**Live Monitoring**: If the Multi-Agent Orchestrator (`spectra start`) is currently running, this command also displays a real-time status dashboard of all active agents and the tasks they are currently processing.
 
 ## `resume`
 **Usage**: `spectra resume`

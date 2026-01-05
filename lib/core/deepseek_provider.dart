@@ -1,7 +1,11 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+
+import '../utils/http_utils.dart';
 import 'llm_provider.dart';
 
+/// DeepSeek LLM provider implementation.
+///
+/// Uses the DeepSeek Chat API with automatic retry and timeout handling.
 class DeepSeekProvider implements LLMProvider {
   static const String _defaultModel = 'deepseek-chat';
   static const List<String> _availableModels = [
@@ -11,8 +15,18 @@ class DeepSeekProvider implements LLMProvider {
 
   final String apiKey;
   final String modelName;
+  final Duration timeout;
 
-  DeepSeekProvider({required this.apiKey, this.modelName = _defaultModel});
+  /// Creates a new DeepSeek provider.
+  ///
+  /// [apiKey] - Your DeepSeek API key.
+  /// [modelName] - The model to use (default: deepseek-chat).
+  /// [timeout] - Request timeout (default: 60s).
+  DeepSeekProvider({
+    required this.apiKey,
+    this.modelName = _defaultModel,
+    this.timeout = HttpConfig.defaultTimeout,
+  });
 
   @override
   String get name => 'DeepSeek';
@@ -29,7 +43,7 @@ class DeepSeekProvider implements LLMProvider {
     final fullPrompt =
         context != null ? '${context.join('\n')}\n\n$prompt' : prompt;
 
-    final response = await http.post(
+    final response = await HttpUtils.postWithRetry(
       Uri.parse('https://api.deepseek.com/v1/chat/completions'),
       headers: {
         'Content-Type': 'application/json',
@@ -41,6 +55,7 @@ class DeepSeekProvider implements LLMProvider {
           {'role': 'user', 'content': fullPrompt}
         ],
       }),
+      timeout: timeout,
     );
 
     if (response.statusCode == 200) {

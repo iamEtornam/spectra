@@ -1,7 +1,11 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+
+import '../utils/http_utils.dart';
 import 'llm_provider.dart';
 
+/// Grok (xAI) LLM provider implementation.
+///
+/// Uses the xAI Chat API with automatic retry and timeout handling.
 class GrokProvider implements LLMProvider {
   static const String _defaultModel = 'grok-2';
   static const List<String> _availableModels = [
@@ -14,8 +18,18 @@ class GrokProvider implements LLMProvider {
 
   final String apiKey;
   final String modelName;
+  final Duration timeout;
 
-  GrokProvider({required this.apiKey, this.modelName = _defaultModel});
+  /// Creates a new Grok provider.
+  ///
+  /// [apiKey] - Your xAI API key.
+  /// [modelName] - The model to use (default: grok-2).
+  /// [timeout] - Request timeout (default: 60s).
+  GrokProvider({
+    required this.apiKey,
+    this.modelName = _defaultModel,
+    this.timeout = HttpConfig.defaultTimeout,
+  });
 
   @override
   String get name => 'Grok';
@@ -32,7 +46,7 @@ class GrokProvider implements LLMProvider {
     final fullPrompt =
         context != null ? '${context.join('\n')}\n\n$prompt' : prompt;
 
-    final response = await http.post(
+    final response = await HttpUtils.postWithRetry(
       Uri.parse('https://api.x.ai/v1/chat/completions'),
       headers: {
         'Content-Type': 'application/json',
@@ -44,6 +58,7 @@ class GrokProvider implements LLMProvider {
           {'role': 'user', 'content': fullPrompt}
         ],
       }),
+      timeout: timeout,
     );
 
     if (response.statusCode == 200) {

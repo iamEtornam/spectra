@@ -1,9 +1,11 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
-
+import '../utils/http_utils.dart';
 import 'llm_provider.dart';
 
+/// Claude (Anthropic) LLM provider implementation.
+///
+/// Uses the Anthropic Messages API with automatic retry and timeout handling.
 class ClaudeProvider implements LLMProvider {
   static const String _defaultModel = 'claude-sonnet-4-5';
   static const List<String> _availableModels = [
@@ -18,8 +20,18 @@ class ClaudeProvider implements LLMProvider {
 
   final String apiKey;
   final String modelName;
+  final Duration timeout;
 
-  ClaudeProvider({required this.apiKey, this.modelName = _defaultModel});
+  /// Creates a new Claude provider.
+  ///
+  /// [apiKey] - Your Anthropic API key.
+  /// [modelName] - The model to use (default: claude-sonnet-4-5).
+  /// [timeout] - Request timeout (default: 60s).
+  ClaudeProvider({
+    required this.apiKey,
+    this.modelName = _defaultModel,
+    this.timeout = HttpConfig.defaultTimeout,
+  });
 
   @override
   String get name => 'Claude';
@@ -36,7 +48,7 @@ class ClaudeProvider implements LLMProvider {
     final fullPrompt =
         context != null ? '${context.join('\n')}\n\n$prompt' : prompt;
 
-    final response = await http.post(
+    final response = await HttpUtils.postWithRetry(
       Uri.parse('https://api.anthropic.com/v1/messages'),
       headers: {
         'Content-Type': 'application/json',
@@ -50,6 +62,7 @@ class ClaudeProvider implements LLMProvider {
           {'role': 'user', 'content': fullPrompt}
         ],
       }),
+      timeout: timeout,
     );
 
     if (response.statusCode == 200) {

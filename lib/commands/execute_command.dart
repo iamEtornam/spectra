@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:spectra_cli/core/llm_provider.dart';
 import 'package:spectra_cli/services/llm_service.dart';
 import 'package:spectra_cli/utils/state_manager.dart';
 import 'package:xml/xml.dart';
@@ -60,7 +61,7 @@ class ExecuteCommand extends SpectraCommand {
     return matches.map((m) => XmlDocument.parse(m.group(0)!)).toList();
   }
 
-  Future<void> _executeTask(XmlDocument taskDoc, dynamic provider) async {
+  Future<void> _executeTask(XmlDocument taskDoc, LLMProvider provider) async {
     final taskElement = taskDoc.rootElement;
     final id = taskElement.getAttribute('id');
     final name = taskElement.findElements('n').first.innerText;

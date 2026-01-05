@@ -22,9 +22,11 @@ class MapCommand extends SpectraCommand {
     final allFiles = currentDir
         .listSync(recursive: true)
         .whereType<File>()
-        .where((f) => !f.path.contains('.git/') && !f.path.contains('.spectra/'));
+        .where(
+            (f) => !f.path.contains('.git/') && !f.path.contains('.spectra/'));
 
-    final fileStructure = allFiles.map((f) => f.path.replaceFirst(currentDir.path, '')).toList();
+    final fileStructure =
+        allFiles.map((f) => f.path.replaceFirst(currentDir.path, '')).toList();
 
     final provider = await _llmService.getPreferredProvider();
     if (provider == null) {
@@ -44,7 +46,7 @@ Return a markdown summary with sections: ## Tech Stack, ## Architecture, ## Core
 
     try {
       final analysis = await provider.generateResponse(prompt);
-      
+
       logger.info('\n--- Analysis Results ---\n');
       logger.info(analysis);
 
@@ -78,10 +80,14 @@ $analysis
 - Extracted from existing repository
 ''');
 
-    File('.spectra/ROADMAP.md').writeAsStringSync('# ROADMAP\n\n- [ ] Reverse engineering complete.');
-    File('.spectra/STATE.md').writeAsStringSync('# STATE\n\n- Mapped from existing repo.');
-    File('.spectra/PLAN.md').writeAsStringSync('# PLAN\n\n<!-- No tasks yet -->');
-    File('.spectra/SUMMARY.md').writeAsStringSync('# SUMMARY\n\nProject mapped.');
+    File('.spectra/ROADMAP.md')
+        .writeAsStringSync('# ROADMAP\n\n- [ ] Reverse engineering complete.');
+    File('.spectra/STATE.md')
+        .writeAsStringSync('# STATE\n\n- Mapped from existing repo.');
+    File('.spectra/PLAN.md')
+        .writeAsStringSync('# PLAN\n\n<!-- No tasks yet -->');
+    File('.spectra/SUMMARY.md')
+        .writeAsStringSync('# SUMMARY\n\nProject mapped.');
     File('.spectra/ISSUES.md').writeAsStringSync('# ISSUES\n\nNo issues yet.');
   }
 }

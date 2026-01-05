@@ -1,9 +1,11 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
-
+import '../utils/http_utils.dart';
 import 'llm_provider.dart';
 
+/// OpenAI LLM provider implementation.
+///
+/// Uses the OpenAI Chat Completions API with automatic retry and timeout handling.
 class OpenAIProvider implements LLMProvider {
   static const String _defaultModel = 'gpt-5.2';
   static const List<String> _availableModels = [
@@ -16,8 +18,18 @@ class OpenAIProvider implements LLMProvider {
 
   final String apiKey;
   final String modelName;
+  final Duration timeout;
 
-  OpenAIProvider({required this.apiKey, this.modelName = _defaultModel});
+  /// Creates a new OpenAI provider.
+  ///
+  /// [apiKey] - Your OpenAI API key.
+  /// [modelName] - The model to use (default: gpt-5.2).
+  /// [timeout] - Request timeout (default: 60s).
+  OpenAIProvider({
+    required this.apiKey,
+    this.modelName = _defaultModel,
+    this.timeout = HttpConfig.defaultTimeout,
+  });
 
   @override
   String get name => 'OpenAI';
@@ -34,7 +46,7 @@ class OpenAIProvider implements LLMProvider {
     final fullPrompt =
         context != null ? '${context.join('\n')}\n\n$prompt' : prompt;
 
-    final response = await http.post(
+    final response = await HttpUtils.postWithRetry(
       Uri.parse('https://api.openai.com/v1/chat/completions'),
       headers: {
         'Content-Type': 'application/json',
@@ -46,6 +58,7 @@ class OpenAIProvider implements LLMProvider {
           {'role': 'user', 'content': fullPrompt}
         ],
       }),
+      timeout: timeout,
     );
 
     if (response.statusCode == 200) {

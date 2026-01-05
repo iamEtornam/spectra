@@ -36,23 +36,24 @@ class StartCommand extends SpectraCommand {
       return;
     }
 
-    final workerCount = int.tryParse(argResults?['workers'] ?? '2') ?? 2;
-    
+    final workersArg = argResults?['workers'] as String?;
+    final workerCount = int.tryParse(workersArg ?? '2') ?? 2;
+
     final orchestrator = OrchestratorService(logger: logger);
-    
+
     final convoy = Convoy(
       id: 'plan-main',
       name: 'Main Plan',
       tasks: tasks,
     );
-    
+
     orchestrator.addConvoy(convoy);
 
     logger.info('Starting orchestrator with $workerCount workers...');
     await orchestrator.start(workerCount: workerCount);
 
     logger.success('Orchestrator is running. Press Enter to stop.');
-    
+
     // Keep alive until user input
     await stdin.first;
     orchestrator.stop();
@@ -67,4 +68,3 @@ class StartCommand extends SpectraCommand {
     }).toList();
   }
 }
-

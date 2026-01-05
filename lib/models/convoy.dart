@@ -13,4 +13,3 @@ class Convoy {
     this.status = 'pending',
   });
 }
-

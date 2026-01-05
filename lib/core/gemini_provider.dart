@@ -1,9 +1,11 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
-
+import '../utils/http_utils.dart';
 import 'llm_provider.dart';
 
+/// Gemini LLM provider implementation.
+///
+/// Uses the Google Generative AI REST API with automatic retry and timeout handling.
 class GeminiProvider implements LLMProvider {
   static const String _defaultModel = 'gemini-3-pro-preview';
   static const List<String> _availableModels = [
@@ -17,8 +19,18 @@ class GeminiProvider implements LLMProvider {
 
   final String apiKey;
   final String modelName;
+  final Duration timeout;
 
-  GeminiProvider({required this.apiKey, this.modelName = _defaultModel});
+  /// Creates a new Gemini provider.
+  ///
+  /// [apiKey] - Your Google AI API key.
+  /// [modelName] - The model to use (default: gemini-3-pro-preview).
+  /// [timeout] - Request timeout (default: 60s).
+  GeminiProvider({
+    required this.apiKey,
+    this.modelName = _defaultModel,
+    this.timeout = HttpConfig.defaultTimeout,
+  });
 
   @override
   String get name => 'Gemini';
@@ -38,7 +50,7 @@ class GeminiProvider implements LLMProvider {
     final url = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent');
 
-    final response = await http.post(
+    final response = await HttpUtils.postWithRetry(
       url,
       headers: {
         'Content-Type': 'application/json',
@@ -53,6 +65,7 @@ class GeminiProvider implements LLMProvider {
           }
         ]
       }),
+      timeout: timeout,
     );
 
     if (response.statusCode == 200) {
@@ -60,7 +73,7 @@ class GeminiProvider implements LLMProvider {
       try {
         return data['candidates'][0]['content']['parts'][0]['text'] as String;
       } catch (e) {
-        return 'Error parsing Gemini response: $e';
+        throw Exception('Error parsing Gemini response: $e');
       }
     } else {
       throw Exception(

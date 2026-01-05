@@ -21,7 +21,7 @@ class ResumeCommand extends SpectraCommand {
     }
 
     logger.info('Analyzing session state...');
-    
+
     // In a real implementation, we would track task status in STATE.md or PLAN.md
     // For now, we'll look for tasks in PLAN.md and ask the user where to start
     final content = planFile.readAsStringSync();
@@ -35,7 +35,7 @@ class ResumeCommand extends SpectraCommand {
 
     logger.info('Found ${matches.length} tasks in current plan.');
     logger.info('Picking up from the beginning of the current PLAN.md...');
-    
+
     // Delegate to ExecuteCommand
     await ExecuteCommand(logger: logger).run();
   }

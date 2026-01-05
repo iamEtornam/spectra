@@ -4,19 +4,46 @@ import '../models/agent.dart';
 import '../models/task.dart';
 import 'base_agent.dart';
 
+/// Callback type for when a worker completes a task.
+typedef TaskCompletedCallback = void Function(String taskId);
+
+/// Worker agent that executes assigned tasks by generating code.
+///
+/// Workers are assigned tasks by the [MayorAgent] and execute them by:
+/// 1. Reading current file context
+/// 2. Generating code changes via LLM
+/// 3. Writing file changes to disk
+/// 4. Updating state files
 class WorkerAgent extends SpectraAgent {
   SpectraTask? _activeTask;
 
+  /// Optional callback when a task is completed successfully.
+  TaskCompletedCallback? onTaskCompleted;
+
+  /// Creates a new worker agent.
+  ///
+  /// [id] - Unique identifier for this worker.
+  /// [provider] - The LLM provider to use for code generation.
+  /// [logger] - Logger for output.
+  /// [onTaskCompleted] - Optional callback when tasks are completed.
   WorkerAgent({
     required super.id,
     required super.provider,
     required super.logger,
+    this.onTaskCompleted,
   }) : super(role: AgentRole.worker);
 
+  /// The currently assigned task, if any.
+  SpectraTask? get activeTask => _activeTask;
+
+  /// Assigns a task to this worker.
+  ///
+  /// Changes status to [AgentStatus.working] and begins execution on next step.
   void assignTask(SpectraTask task) {
     _activeTask = task;
     currentTaskId = task.id;
     updateStatus(AgentStatus.working);
+    logger.detail('[Agent $id] Assigned Task #${task.id}: ${task.name}');
   }
 
   @override
@@ -52,34 +79,39 @@ void main() {}
       if (fileContents.isEmpty) {
         logger.warn(
             '[Agent $id] No file contents generated for Task #${task.id}');
-        updateStatus(AgentStatus.idle);
-        _activeTask = null;
+        _completeTask(task.id, success: false);
         return;
       }
 
-      for (final path in fileContents.keys) {
-        final content = fileContents[path]!;
-        final file = File(path);
+      for (final entry in fileContents.entries) {
+        final file = File(entry.key);
         if (!file.parent.existsSync()) {
           file.parent.createSync(recursive: true);
         }
-        file.writeAsStringSync(content);
-        logger.detail('[Agent $id] Updated $path');
+        file.writeAsStringSync(entry.value);
+        logger.detail('[Agent $id] Updated ${entry.key}');
       }
 
-      // In a real orchestrator, the Mayor or Service would handle Git/State updates
-      // for coordination, but for now we keep it here or emit results.
       logger.success('[Agent $id] Completed Task #${task.id}');
-
-      updateStatus(AgentStatus.completed);
-      _activeTask = null;
+      _completeTask(task.id, success: true);
     } catch (e) {
       logger.err('[Agent $id] Error executing Task #${task.id}: $e');
-      updateStatus(AgentStatus.failed);
-      _activeTask = null;
+      // Re-throw to let orchestrator handle error recovery
+      rethrow;
     }
   }
 
+  /// Completes the current task and resets worker state.
+  void _completeTask(String taskId, {required bool success}) {
+    if (success) {
+      onTaskCompleted?.call(taskId);
+    }
+    updateStatus(AgentStatus.idle);
+    currentTaskId = null;
+    _activeTask = null;
+  }
+
+  /// Builds context string from existing files.
   String _getFileContext(List<String> paths) {
     final buffer = StringBuffer();
     for (final path in paths) {
@@ -97,10 +129,13 @@ void main() {}
     return buffer.toString();
   }
 
+  /// Parses file content blocks from LLM response.
   Map<String, String> _parseFileContents(String response) {
     final contents = <String, String>{};
-    final fileRegex = RegExp(r'<file_content path="(.*?)">(.*?)</file_content>',
-        dotAll: true);
+    final fileRegex = RegExp(
+      r'<file_content path="(.*?)">(.*?)</file_content>',
+      dotAll: true,
+    );
     final matches = fileRegex.allMatches(response);
 
     for (final match in matches) {

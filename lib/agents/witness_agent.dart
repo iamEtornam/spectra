@@ -17,7 +17,7 @@ class WitnessAgent extends SpectraAgent {
   @override
   Future<void> step() async {
     updateStatus(AgentStatus.working);
-    
+
     final allAgents = orchestrator.getAllAgents();
     final now = DateTime.now();
 
@@ -27,7 +27,8 @@ class WitnessAgent extends SpectraAgent {
       if (agent.status == AgentStatus.working) {
         final inactiveDuration = now.difference(agent.lastActivity);
         if (inactiveDuration > timeoutThreshold) {
-          logger.warn('[Witness $id] Agent ${agent.id} seems stuck (inactive for ${inactiveDuration.inMinutes}m).');
+          logger.warn(
+              '[Witness $id] Agent ${agent.id} seems stuck (inactive for ${inactiveDuration.inMinutes}m).');
           agent.updateStatus(AgentStatus.stuck);
         }
       }
@@ -36,4 +37,3 @@ class WitnessAgent extends SpectraAgent {
     updateStatus(AgentStatus.idle);
   }
 }
-

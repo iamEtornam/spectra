@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-01-05
+
+### Added
+- **Test Suite**: Comprehensive unit tests for agents, models, and utilities.
+  - Tests for `AgentState` JSON serialization/deserialization.
+  - Tests for `SpectraTask` XML parsing.
+  - Tests for `WorkerAgent` task assignment and execution.
+  - Tests for `StateManager` pruning logic.
+- **LLM Response Caching**: New caching layer to reduce API costs.
+  - LRU cache with configurable size and TTL.
+  - Persistent file-based caching in `~/.spectra/cache.json`.
+  - `CachedLLMProvider` wrapper for transparent caching.
+- **Timeout & Retry Handling**: Robust HTTP request handling.
+  - Configurable timeouts for all LLM API calls (default: 60s).
+  - Automatic retry with exponential backoff.
+  - Rate limit detection and handling.
+- **Enhanced Error Recovery**: Improved multi-agent resilience.
+  - `OrchestratorConfig` for customizable orchestrator behavior.
+  - Automatic stuck agent detection and recovery.
+  - Consecutive failure tracking with configurable thresholds.
+  - Task release and reassignment when workers fail.
+  - `restartAgent()` method for manual recovery.
+- **API Documentation**: Comprehensive doc comments throughout codebase.
+  - All public APIs documented with examples.
+  - Agent roles, states, and lifecycle documented.
+  - LLM provider interface fully documented.
+- **Web Dashboard**: Real-time browser-based agent monitoring UI.
+  - New `spectra dashboard` command to launch the web server.
+  - Built with [Jaspr](https://docs.jaspr.site) for Dart-native SSR components.
+  - Live agent status with role indicators and task visibility.
+  - Project progress tracking with visual progress bar.
+  - Auto-refresh every 2 seconds.
+  - Modern dark theme with responsive design.
+
+### Changed
+- Replaced `Timer.periodic` with proper async loop in orchestrator to prevent race conditions.
+- Workers now properly reset to `idle` status after completing tasks.
+- All LLM providers now use `HttpUtils` for consistent timeout/retry behavior.
+- `SpectraCommand` now extends `Command<void>` for type safety.
+- Added `analysis_options.yaml` with strict linting rules.
+
+### Fixed
+- Fixed orchestrator race condition where agent steps could execute concurrently.
+- Fixed worker agents becoming permanently unavailable after first task completion.
+- Fixed nullable field promotion issues in `LLMCache`.
+- Fixed type casting issues in progress and start commands.
+
 ## [0.1.2] - 2026-01-04
 
 ### Added

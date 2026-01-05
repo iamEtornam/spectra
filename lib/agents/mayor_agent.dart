@@ -16,7 +16,7 @@ class MayorAgent extends SpectraAgent {
   @override
   Future<void> step() async {
     updateStatus(AgentStatus.working);
-    
+
     final pendingTasks = orchestrator.getPendingTasks();
     if (pendingTasks.isEmpty) {
       logger.detail('[Mayor $id] No pending tasks.');
@@ -24,7 +24,8 @@ class MayorAgent extends SpectraAgent {
       return;
     }
 
-    final idleWorkers = orchestrator.getAgentsByRole(AgentRole.worker)
+    final idleWorkers = orchestrator
+        .getAgentsByRole(AgentRole.worker)
         .where((a) => a.status == AgentStatus.idle)
         .cast<WorkerAgent>()
         .toList();
@@ -38,12 +39,12 @@ class MayorAgent extends SpectraAgent {
     for (var i = 0; i < pendingTasks.length && i < idleWorkers.length; i++) {
       final task = pendingTasks[i];
       final worker = idleWorkers[i];
-      
-      logger.info('[Mayor $id] Assigning Task #${task.id} to Worker ${worker.id}');
+
+      logger.info(
+          '[Mayor $id] Assigning Task #${task.id} to Worker ${worker.id}');
       worker.assignTask(task);
     }
 
     updateStatus(AgentStatus.idle);
   }
 }
-

@@ -72,6 +72,8 @@ The Planner breaks your roadmap into 2–5 atomic tasks. While `spectra execute`
 - **Worker Agents**: Parallel executors that implement tasks.
 - **Witness Agent**: Monitors health and detects stuck workers.
 
+**Monitor in real-time**: While `spectra start` is running, you can use `spectra progress` in another terminal to see the live status of all active agents and their assigned tasks. For a visual experience, run `spectra dashboard` to launch a web-based monitoring UI.
+
 ---
 
 ## Why It Works: Context Engineering
@@ -93,16 +95,17 @@ When `STATE.md` grows too large, Spectra automatically archives older decisions 
 
 ## Commands
 
-| Command    | Description                                             |
-| ---------- | ------------------------------------------------------- |
-| `new`      | Interactive onboarding to start a new project           |
-| `map`      | Analyze existing repository architecture (Brownfield)   |
-| `plan`     | Break a roadmap phase into atomic XML tasks            |
-| `execute`  | Parse plans, apply changes, and commit to Git (Sequential) |
-| `start`    | Launch the Multi-Agent Orchestrator (Parallel execution) |
-| `progress` | Visual dashboard of completed vs. upcoming phases       |
-| `resume`   | Detect interrupted states and pick up where you left off|
-| `config`   | Set up API keys for Gemini, Claude, OpenAI, Grok, and DeepSeek |
+| Command     | Description                                             |
+| ----------- | ------------------------------------------------------- |
+| `new`       | Interactive onboarding to start a new project           |
+| `map`       | Analyze existing repository architecture (Brownfield)   |
+| `plan`      | Break a roadmap phase into atomic XML tasks            |
+| `execute`   | Parse plans, apply changes, and commit to Git (Sequential) |
+| `start`     | Launch the Multi-Agent Orchestrator (Parallel execution) |
+| `dashboard` | Launch web UI for real-time agent monitoring            |
+| `progress`  | CLI dashboard of completed vs. upcoming phases          |
+| `resume`    | Detect interrupted states and pick up where you left off|
+| `config`    | Set up API keys for Gemini, Claude, OpenAI, Grok, and DeepSeek |
 
 ---
 
@@ -111,6 +114,22 @@ When `STATE.md` grows too large, Spectra automatically archives older decisions 
 Creative engineers who want to build complex systems without being bogged down by manual implementation details.
 
 If you want to define the *what* and have a system you trust handle the *how*—while maintaining full architectural control—Spectra is for you.
+
+---
+
+## Roadmap / TODO
+
+Future enhancements planned for Spectra:
+
+- [ ] **Expand Test Coverage** — Add integration tests for commands and end-to-end workflows
+- [ ] **Security Hardening** — Encrypted storage for API keys (instead of plain YAML)
+- [ ] **Metrics & Telemetry** — Track agent performance, task completion times, and LLM costs over time
+- [ ] **Plugin System** — Allow custom LLM providers and agent types via plugins
+- [x] **Web Dashboard** — Real-time browser UI for monitoring agents, built with [Jaspr](https://docs.jaspr.site)
+- [ ] **Task Dependencies** — Support for task ordering and prerequisite chains in `PLAN.md`
+- [ ] **Rollback Support** — Automatic Git rollback when a task fails verification
+
+Contributions welcome! Feel free to open issues or pull requests on [GitHub](https://github.com/iamEtornam/spectra).
 
 ---
 

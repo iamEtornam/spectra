@@ -33,8 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - LLM provider interface fully documented.
 - **Web Dashboard**: Real-time browser-based agent monitoring UI.
   - New `spectra dashboard` command to launch the web server.
-  - Built with [Jaspr](https://docs.jaspr.site) for Dart-native server-side rendering.
-  - Component-based architecture: `DashboardApp`, `AgentCard`, `ProgressCard`.
+  - Built with [Jaspr](https://docs.jaspr.site/) for component-based server-side rendering.
+  - Reusable components: `DashboardPage`, `AgentCard`, `ProgressCard`.
   - Live agent status with role indicators (Mayor 👔, Worker 🔧, Witness 👁️).
   - Project progress tracking with visual progress bar.
   - Auto-refresh every 2 seconds.
@@ -47,9 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All LLM providers now use `HttpUtils` for consistent timeout/retry behavior.
 - `SpectraCommand` now extends `Command<void>` for type safety.
 - Added `analysis_options.yaml` with strict linting rules.
+- Updated minimum Dart SDK to 3.10.0 for modern language features.
 
 ### Dependencies
-- Added `jaspr` ^0.18.0 for web dashboard SSR.
+- Added `jaspr` ^0.22.0 for component-based web dashboard.
 - Added `shelf` ^1.4.1 and `shelf_router` ^1.1.4 for HTTP server.
 - Added `crypto` ^3.0.3 for cache key hashing.
 - Added `mocktail` ^1.0.4 (dev) for testing.
@@ -58,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed orchestrator race condition where agent steps could execute concurrently.
 - Fixed worker agents becoming permanently unavailable after first task completion.
 - Fixed nullable field promotion issues in `LLMCache`.
+- Fixed LRU cache corruption when updating existing entries (duplicate keys in access order).
+- Fixed potential null pointer exception in progress command's ANSI color wrapping.
 - Fixed type casting issues in progress and start commands.
 
 ## [0.1.2] - 2026-01-04

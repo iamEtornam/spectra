@@ -1,15 +1,119 @@
+import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 import '../../models/agent.dart';
 
-/// A card component displaying an agent's status.
+/// A Jaspr component that displays a single agent's status.
 class AgentCard extends StatelessComponent {
   final AgentState agent;
 
-  const AgentCard({required this.agent});
+  const AgentCard({required this.agent, super.key});
 
-  String get _icon {
-    switch (agent.role) {
+  @override
+  Component build(BuildContext context) {
+    return div(
+      classes: 'agent-card',
+      styles: const Styles(
+        raw: {
+          'background-color': '#2a2a4a',
+          'border-radius': '10px',
+          'padding': '20px',
+          'box-shadow': '0 4px 8px rgba(0, 0, 0, 0.2)',
+        },
+      ),
+      [
+        // Header with role icon and agent ID
+        h3(
+          styles: const Styles(
+            raw: {
+              'display': 'flex',
+              'align-items': 'center',
+              'gap': '8px',
+              'margin-bottom': '12px',
+              'color': '#e0e0e0',
+            },
+          ),
+          [
+            span(styles: const Styles(raw: {'font-size': '1.2em'}), [
+              Component.text(_getRoleIcon(agent.role)),
+            ]),
+            Component.text(agent.id),
+          ],
+        ),
+
+        // Status badge
+        div(
+          styles: const Styles(
+            raw: {
+              'display': 'flex',
+              'align-items': 'center',
+              'gap': '8px',
+              'margin-bottom': '8px',
+            },
+          ),
+          [
+            // Status indicator dot
+            span(
+              styles: Styles(
+                raw: {
+                  'width': '10px',
+                  'height': '10px',
+                  'border-radius': '50%',
+                  'background-color': _getStatusColorHex(agent.status),
+                },
+              ),
+              [],
+            ),
+            span(
+              styles: Styles(
+                raw: {
+                  'font-weight': 'bold',
+                  'color': _getStatusColorHex(agent.status),
+                },
+              ),
+              [Component.text(agent.status.name.toUpperCase())],
+            ),
+          ],
+        ),
+
+        // Current task (if any)
+        if (agent.currentTaskId != null)
+          p(
+            styles: const Styles(
+              raw: {'margin-bottom': '8px', 'color': '#b0b0b0'},
+            ),
+            [
+              const Component.text('Task: '),
+              code(
+                styles: const Styles(
+                  raw: {
+                    'background-color': '#1a1f2e',
+                    'padding': '2px 6px',
+                    'border-radius': '4px',
+                  },
+                ),
+                [Component.text(agent.currentTaskId!)],
+              ),
+            ],
+          ),
+
+        // Last activity timestamp
+        p(
+          styles: const Styles(
+            raw: {'font-size': '0.85em', 'color': '#888888'},
+          ),
+          [
+            Component.text(
+              'Last: ${agent.lastActivity.toLocal().toString().split('.').first}',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _getRoleIcon(AgentRole role) {
+    switch (role) {
       case AgentRole.mayor:
         return '👔';
       case AgentRole.worker:
@@ -19,107 +123,18 @@ class AgentCard extends StatelessComponent {
     }
   }
 
-  String get _statusColor {
-    switch (agent.status) {
+  String _getStatusColorHex(AgentStatus status) {
+    switch (status) {
       case AgentStatus.idle:
-        return '#6b7280';
+        return '#4CAF50'; // Green
       case AgentStatus.working:
-        return '#f59e0b';
-      case AgentStatus.completed:
-        return '#10b981';
-      case AgentStatus.failed:
-        return '#ef4444';
+        return '#FFC107'; // Amber
       case AgentStatus.stuck:
-        return '#f97316';
+        return '#FF5722'; // Deep Orange
+      case AgentStatus.completed:
+        return '#2196F3'; // Blue
+      case AgentStatus.failed:
+        return '#F44336'; // Red
     }
-  }
-
-  String get _roleGradient {
-    switch (agent.role) {
-      case AgentRole.mayor:
-        return 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-      case AgentRole.worker:
-        return 'linear-gradient(135deg, #00d4aa 0%, #00a88a 100%)';
-      case AgentRole.witness:
-        return 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-    }
-  }
-
-  String _formatRelativeTime(DateTime time) {
-    final now = DateTime.now();
-    final diff = now.difference(time).inSeconds;
-
-    if (diff < 60) return '${diff}s ago';
-    if (diff < 3600) return '${diff ~/ 60}m ago';
-    return '${diff ~/ 3600}h ago';
-  }
-
-  @override
-  Iterable<Component> build(BuildContext context) sync* {
-    yield div(
-      classes: 'agent',
-      styles: Styles.raw({
-        'display': 'flex',
-        'align-items': 'center',
-        'gap': '1rem',
-        'padding': '1rem',
-        'background': '#1a1f2e',
-        'border-radius': '8px',
-        'transition': 'transform 0.2s, box-shadow 0.2s',
-      }),
-      [
-        // Icon
-        div(
-          styles: Styles.raw({
-            'width': '40px',
-            'height': '40px',
-            'border-radius': '8px',
-            'display': 'flex',
-            'align-items': 'center',
-            'justify-content': 'center',
-            'font-size': '1.25rem',
-            'background': _roleGradient,
-          }),
-          [text(_icon)],
-        ),
-        // Info
-        div(
-          styles: Styles.raw({'flex': '1'}),
-          [
-            div(
-              styles: Styles.raw({
-                'font-weight': '600',
-                'margin-bottom': '0.25rem',
-              }),
-              [text(agent.id)],
-            ),
-            div(
-              styles: Styles.raw({
-                'font-size': '0.75rem',
-                'color': '#8b949e',
-              }),
-              [
-                text(agent.currentTaskId != null
-                    ? 'Task: ${agent.currentTaskId} · Last active: ${_formatRelativeTime(agent.lastActivity)}'
-                    : 'No active task · Last active: ${_formatRelativeTime(agent.lastActivity)}'),
-              ],
-            ),
-          ],
-        ),
-        // Status badge
-        div(
-          styles: Styles.raw({
-            'padding': '0.25rem 0.75rem',
-            'border-radius': '1rem',
-            'font-size': '0.75rem',
-            'font-weight': '600',
-            'text-transform': 'uppercase',
-            'background': _statusColor,
-            'color': agent.status == AgentStatus.working ? '#000' : '#fff',
-          }),
-          [text(agent.status.name)],
-        ),
-      ],
-    );
   }
 }

@@ -76,9 +76,9 @@ class CodebaseContextService {
         final roadmap = roadmapFile.readAsStringSync();
         // Only include first 500 chars to avoid overwhelming context
         buffer.writeln('ROADMAP.md (excerpt):');
-        buffer.writeln(roadmap.length > 500
-            ? '${roadmap.substring(0, 500)}...'
-            : roadmap);
+        buffer.writeln(
+          roadmap.length > 500 ? '${roadmap.substring(0, 500)}...' : roadmap,
+        );
         buffer.writeln();
       } catch (e) {
         buffer.writeln('ROADMAP.md: (could not read: $e)');
@@ -143,7 +143,9 @@ class CodebaseContextService {
         buffer.writeln();
       }
     } else {
-      buffer.writeln('lib/ directory does not exist yet (will be created as needed).');
+      buffer.writeln(
+        'lib/ directory does not exist yet (will be created as needed).',
+      );
       buffer.writeln();
     }
 
@@ -154,8 +156,9 @@ class CodebaseContextService {
         buffer.writeln('Dependencies (pubspec.yaml):');
         final content = pubspecFile.readAsStringSync();
         // Extract dependencies section
-        final depsMatch = RegExp(r'dependencies:\s*\n((?:[^\n]*\n)*)')
-            .firstMatch(content);
+        final depsMatch = RegExp(
+          r'dependencies:\s*\n((?:[^\n]*\n)*)',
+        ).firstMatch(content);
         if (depsMatch != null) {
           buffer.writeln(depsMatch.group(1));
         }
@@ -241,7 +244,10 @@ class CodebaseContextService {
 
         // Find imports/exports
         final importRegex = RegExp(
-          r"import\s+['""]([^'""]+)['""]",
+          r"import\s+['"
+          "]([^'"
+          "]+)['"
+          ']',
           multiLine: true,
         );
         final imports = importRegex.allMatches(content);
@@ -258,13 +264,17 @@ class CodebaseContextService {
               final pubspecFile = File('pubspec.yaml');
               if (pubspecFile.existsSync()) {
                 final pubspecContent = pubspecFile.readAsStringSync();
-                final nameMatch = RegExp(r'^name:\s*(.+)$', multiLine: true)
-                    .firstMatch(pubspecContent);
+                final nameMatch = RegExp(
+                  r'^name:\s*(.+)$',
+                  multiLine: true,
+                ).firstMatch(pubspecContent);
                 if (nameMatch != null) {
                   final packageName = nameMatch.group(1)!.trim();
                   if (packagePath.startsWith('$packageName/')) {
-                    final relativePath =
-                        packagePath.replaceFirst('$packageName/', '');
+                    final relativePath = packagePath.replaceFirst(
+                      '$packageName/',
+                      '',
+                    );
                     filePath = 'lib/$relativePath.dart';
                   } else {
                     filePath = 'lib/$packagePath.dart';
@@ -299,7 +309,7 @@ class CodebaseContextService {
 
         // Find exports
         final exportRegex = RegExp(
-          r"export\s+['""]([^'""]+)['""]",
+          'export\\s+[\'"]([^\'"]+)[\'"]',
           multiLine: true,
         );
         final exports = exportRegex.allMatches(content);

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/server.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:shelf/shelf.dart' as shelf;

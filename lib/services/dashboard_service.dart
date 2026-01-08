@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/server.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:shelf/shelf.dart' as shelf;
@@ -23,6 +24,9 @@ class DashboardService {
 
   /// Starts the dashboard HTTP server.
   Future<void> start() async {
+    // Initialize Jaspr before using renderComponent
+    Jaspr.initializeApp();
+
     final router = Router();
 
     // API endpoints

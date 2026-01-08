@@ -2,6 +2,7 @@ import 'dart:io';
 
 import '../models/agent.dart';
 import '../models/task.dart';
+import '../services/codebase_context_service.dart';
 import 'base_agent.dart';
 
 /// Callback type for when a worker completes a task.
@@ -10,12 +11,13 @@ typedef TaskCompletedCallback = void Function(String taskId);
 /// Worker agent that executes assigned tasks by generating code.
 ///
 /// Workers are assigned tasks by the [MayorAgent] and execute them by:
-/// 1. Reading current file context
+/// 1. Reading current file context and broader codebase context
 /// 2. Generating code changes via LLM
 /// 3. Writing file changes to disk
 /// 4. Updating state files
 class WorkerAgent extends SpectraAgent {
   SpectraTask? _activeTask;
+  final CodebaseContextService _contextService;
 
   /// Optional callback when a task is completed successfully.
   TaskCompletedCallback? onTaskCompleted;
@@ -26,12 +28,15 @@ class WorkerAgent extends SpectraAgent {
   /// [provider] - The LLM provider to use for code generation.
   /// [logger] - Logger for output.
   /// [onTaskCompleted] - Optional callback when tasks are completed.
+  /// [contextService] - Optional codebase context service (created if not provided).
   WorkerAgent({
     required super.id,
     required super.provider,
     required super.logger,
     this.onTaskCompleted,
-  }) : super(role: AgentRole.worker);
+    CodebaseContextService? contextService,
+  })  : _contextService = contextService ?? CodebaseContextService(logger: logger),
+        super(role: AgentRole.worker);
 
   /// The currently assigned task, if any.
   SpectraTask? get activeTask => _activeTask;
@@ -53,23 +58,41 @@ class WorkerAgent extends SpectraAgent {
     final task = _activeTask!;
     logger.info('[Agent $id] Executing Task #${task.id}: ${task.name}');
 
+    // Get comprehensive codebase context
+    final codebaseContext = _contextService.getCodebaseContext(task.files);
     final fileContext = _getFileContext(task.files);
 
     final prompt = '''
-You are an expert developer. Implement the following task.
+You are an expert developer working on a real codebase. Implement the following task with full awareness of the project context.
+
+$codebaseContext
+
+=== TASK DETAILS ===
 TASK: ${task.name}
 OBJECTIVE: ${task.objective}
+VERIFICATION: ${task.verification}
+ACCEPTANCE CRITERIA: ${task.acceptance}
 
-CURRENT FILE CONTEXT:
+=== TARGET FILES ===
+FILES TO MODIFY/CREATE: ${task.files.join(', ')}
+
+=== CURRENT FILE CONTENT ===
 $fileContext
 
-FILES TO MODIFY/CREATE: ${task.files.join(', ')}
+=== INSTRUCTIONS ===
+1. Analyze the codebase context above to understand project structure, patterns, and conventions
+2. Review related files and dependencies to ensure consistency
+3. Follow existing code patterns and naming conventions
+4. Implement the task objective while maintaining code quality and consistency
+5. Ensure your implementation matches the acceptance criteria
 
 Return the full content of each file wrapped in <file_content path="path/to/file"> XML tags.
 Example:
 <file_content path="lib/main.dart">
 void main() {}
 </file_content>
+
+IMPORTANT: Only generate code that is relevant to this codebase. Do not invent new patterns or structures that don't match the existing codebase.
 ''';
 
     try {

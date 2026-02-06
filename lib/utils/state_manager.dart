@@ -25,11 +25,13 @@ class StateManager {
 
       // Keep only the last 50 lines as context
       final prunedLines = lines.sublist(lines.length - 50);
-      stateFile
-          .writeAsStringSync('# STATE (Pruned)\n\n${prunedLines.join('\n')}');
+      stateFile.writeAsStringSync(
+        '# STATE (Pruned)\n\n${prunedLines.join('\n')}',
+      );
 
       logger.success(
-          'State pruned successfully. archived to ${archiveFile.path}');
+        'State pruned successfully. archived to ${archiveFile.path}',
+      );
     }
   }
 }

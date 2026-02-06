@@ -24,10 +24,7 @@ void main() {
 
   group('AgentState', () {
     test('should create with default values', () {
-      final state = AgentState(
-        id: 'test-agent',
-        role: AgentRole.worker,
-      );
+      final state = AgentState(id: 'test-agent', role: AgentRole.worker);
 
       expect(state.id, equals('test-agent'));
       expect(state.role, equals(AgentRole.worker));

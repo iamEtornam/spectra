@@ -47,7 +47,7 @@ Spectra allows me to focus on high-level architecture while it handles the imple
 ```bash
 spectra config
 ```
-Spectra will prompt you for your API keys for Google Gemini, OpenAI, Anthropic Claude, xAI Grok, and DeepSeek. These are stored locally in `~/.spectra/config.yaml`.
+Spectra will prompt you for your API keys for Google Gemini, OpenAI, Anthropic Claude, xAI Grok, and DeepSeek. These are stored **securely encrypted** in `~/.spectra/.secure/` using machine-specific encryption. Legacy YAML configs are automatically migrated to encrypted storage.
 
 ### 2. New Projects (Greenfield)
 ```bash
@@ -117,12 +117,26 @@ If you want to define the *what* and have a system you trust handle the *how*—
 
 ---
 
+## Security Features
+
+Spectra takes security seriously, especially when handling sensitive API keys:
+
+- **Encrypted Storage**: All API keys are encrypted using machine-specific encryption before being stored
+- **No Plain Text**: API keys are never stored in plain YAML or configuration files
+- **Automatic Migration**: Legacy plain-text configs are automatically migrated to encrypted storage on first use
+- **Secure Key Derivation**: Encryption keys are derived from system-specific information using PBKDF2 with 10,000 iterations
+- **Local-Only Storage**: All credentials remain on your machine in `~/.spectra/.secure/`
+
+Your API keys are as secure as your machine's filesystem permissions.
+
+---
+
 ## Roadmap / TODO
 
 Future enhancements planned for Spectra:
 
-- [ ] **Expand Test Coverage** — Add integration tests for commands and end-to-end workflows
-- [ ] **Security Hardening** — Encrypted storage for API keys (instead of plain YAML)
+- [x] **Expand Test Coverage** — Integration tests for commands and end-to-end workflows ✓
+- [x] **Security Hardening** — Encrypted storage for API keys with automatic migration ✓
 - [ ] **Metrics & Telemetry** — Track agent performance, task completion times, and LLM costs over time
 - [ ] **Plugin System** — Allow custom LLM providers and agent types via plugins
 - [x] **Web Dashboard** — Real-time browser UI for monitoring agents, built with [Jaspr](https://docs.jaspr.site)

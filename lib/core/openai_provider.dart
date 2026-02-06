@@ -13,7 +13,7 @@ class OpenAIProvider implements LLMProvider {
     'gpt-5-mini-2025-08-07',
     'gpt-5-nano-2025-08-07',
     'gpt-4.1-2025-04-14',
-    'gpt-oss-120b'
+    'gpt-oss-120b',
   ];
 
   final String apiKey;
@@ -41,10 +41,13 @@ class OpenAIProvider implements LLMProvider {
   String get defaultModel => _defaultModel;
 
   @override
-  Future<String> generateResponse(String prompt,
-      {List<String>? context}) async {
-    final fullPrompt =
-        context != null ? '${context.join('\n')}\n\n$prompt' : prompt;
+  Future<String> generateResponse(
+    String prompt, {
+    List<String>? context,
+  }) async {
+    final fullPrompt = context != null
+        ? '${context.join('\n')}\n\n$prompt'
+        : prompt;
 
     final response = await HttpUtils.postWithRetry(
       Uri.parse('https://api.openai.com/v1/chat/completions'),
@@ -55,7 +58,7 @@ class OpenAIProvider implements LLMProvider {
       body: jsonEncode({
         'model': modelName,
         'messages': [
-          {'role': 'user', 'content': fullPrompt}
+          {'role': 'user', 'content': fullPrompt},
         ],
       }),
       timeout: timeout,
@@ -66,7 +69,8 @@ class OpenAIProvider implements LLMProvider {
       return data['choices'][0]['message']['content'] as String;
     } else {
       throw Exception(
-          'Failed to generate response from OpenAI: ${response.body}');
+        'Failed to generate response from OpenAI: ${response.body}',
+      );
     }
   }
 }

@@ -23,10 +23,12 @@ class MapCommand extends SpectraCommand {
         .listSync(recursive: true)
         .whereType<File>()
         .where(
-            (f) => !f.path.contains('.git/') && !f.path.contains('.spectra/'));
+          (f) => !f.path.contains('.git/') && !f.path.contains('.spectra/'),
+        );
 
-    final fileStructure =
-        allFiles.map((f) => f.path.replaceFirst(currentDir.path, '')).toList();
+    final fileStructure = allFiles
+        .map((f) => f.path.replaceFirst(currentDir.path, ''))
+        .toList();
 
     final provider = await _llmService.getPreferredProvider();
     if (provider == null) {
@@ -36,7 +38,8 @@ class MapCommand extends SpectraCommand {
 
     logger.info('Analyzing architecture using ${provider.name}...');
 
-    final prompt = '''
+    final prompt =
+        '''
 Analyze the following file structure and summarize the project's tech stack, architecture, and core modules.
 FILE STRUCTURE:
 ${fileStructure.join('\n')}
@@ -50,9 +53,9 @@ Return a markdown summary with sections: ## Tech Stack, ## Architecture, ## Core
       logger.info('\n--- Analysis Results ---\n');
       logger.info(analysis);
 
-      final confirm =
-          Confirm(prompt: 'Generate .spectra context based on this analysis?')
-              .interact();
+      final confirm = Confirm(
+        prompt: 'Generate .spectra context based on this analysis?',
+      ).interact();
 
       if (confirm) {
         _generateSpectraFromMap(analysis);
@@ -80,14 +83,18 @@ $analysis
 - Extracted from existing repository
 ''');
 
-    File('.spectra/ROADMAP.md')
-        .writeAsStringSync('# ROADMAP\n\n- [ ] Reverse engineering complete.');
-    File('.spectra/STATE.md')
-        .writeAsStringSync('# STATE\n\n- Mapped from existing repo.');
-    File('.spectra/PLAN.md')
-        .writeAsStringSync('# PLAN\n\n<!-- No tasks yet -->');
-    File('.spectra/SUMMARY.md')
-        .writeAsStringSync('# SUMMARY\n\nProject mapped.');
+    File(
+      '.spectra/ROADMAP.md',
+    ).writeAsStringSync('# ROADMAP\n\n- [ ] Reverse engineering complete.');
+    File(
+      '.spectra/STATE.md',
+    ).writeAsStringSync('# STATE\n\n- Mapped from existing repo.');
+    File(
+      '.spectra/PLAN.md',
+    ).writeAsStringSync('# PLAN\n\n<!-- No tasks yet -->');
+    File(
+      '.spectra/SUMMARY.md',
+    ).writeAsStringSync('# SUMMARY\n\nProject mapped.');
     File('.spectra/ISSUES.md').writeAsStringSync('# ISSUES\n\nNo issues yet.');
   }
 }

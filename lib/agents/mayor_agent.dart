@@ -41,7 +41,8 @@ class MayorAgent extends SpectraAgent {
       final worker = idleWorkers[i];
 
       logger.info(
-          '[Mayor $id] Assigning Task #${task.id} to Worker ${worker.id}');
+        '[Mayor $id] Assigning Task #${task.id} to Worker ${worker.id}',
+      );
       worker.assignTask(task);
     }
 

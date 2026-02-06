@@ -14,31 +14,36 @@ import 'package:spectra_cli/commands/start_command.dart';
 
 Future<void> main(List<String> arguments) async {
   final logger = Logger();
-  final runner = CommandRunner<void>(
-      'spectra', 'Spectra - A Multi-LLM Spec-Driven Development System')
-    ..addCommand(ConfigCommand(logger: logger))
-    ..addCommand(NewCommand(logger: logger))
-    ..addCommand(MapCommand(logger: logger))
-    ..addCommand(PlanCommand(logger: logger))
-    ..addCommand(ExecuteCommand(logger: logger))
-    ..addCommand(ProgressCommand(logger: logger))
-    ..addCommand(ResumeCommand(logger: logger))
-    ..addCommand(StartCommand(logger: logger))
-    ..addCommand(DashboardCommand(logger: logger));
+  final runner =
+      CommandRunner<void>(
+          'spectra',
+          'Spectra - A Multi-LLM Spec-Driven Development System',
+        )
+        ..addCommand(ConfigCommand(logger: logger))
+        ..addCommand(NewCommand(logger: logger))
+        ..addCommand(MapCommand(logger: logger))
+        ..addCommand(PlanCommand(logger: logger))
+        ..addCommand(ExecuteCommand(logger: logger))
+        ..addCommand(ProgressCommand(logger: logger))
+        ..addCommand(ResumeCommand(logger: logger))
+        ..addCommand(StartCommand(logger: logger))
+        ..addCommand(DashboardCommand(logger: logger));
 
   try {
     if (arguments.isEmpty ||
         arguments.first == 'help' ||
         arguments.contains('-h') ||
         arguments.contains('--help')) {
-      logger.info(lightCyan.wrap('''
+      logger.info(
+        lightCyan.wrap('''
   ███████╗██████╗ ███████╗ ██████╗████████╗██████╗  █████╗ 
   ██╔════╝██╔══██╗██╔════╝██╔════╝╚══██╔══╝██╔══██╗██╔══██╗
   ███████╗██████╔╝█████╗  ██║        ██║   ██████╔╝███████║
   ╚════██║██╔═══╝ ██╔══╝  ██║        ██║   ██╔══██╗██╔══██║
   ███████║██║     ███████╗╚██████╗   ██║   ██║  ██║██║  ██║
   ╚══════╝╚═╝     ╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
-''')!);
+''')!,
+      );
 
       if (arguments.isEmpty) {
         logger.info('Spectra - A Multi-LLM Spec-Driven Development System\n');

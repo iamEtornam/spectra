@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-02-06
+
+### Added
+- **Encrypted Credential Storage**: API keys are now encrypted using machine-specific encryption.
+  - New `SecureStorageService` with PBKDF2 key derivation (10,000 iterations).
+  - Keys stored in `~/.spectra/.secure/` with filesystem-based protection.
+  - Automatic migration from legacy plain-text YAML config.
+  - Machine-bound encryption prevents credential theft across systems.
+- **Comprehensive Test Suite**: Significantly expanded test coverage to 85%+.
+  - Unit tests for `SecureStorageService` and updated `ConfigService`.
+  - Integration tests for `config`, `map`, and `plan` commands.
+  - End-to-end workflow tests covering complete user journeys:
+    - New project (greenfield) setup workflow.
+    - Existing project (brownfield) mapping workflow.
+    - Task execution and verification workflow.
+    - Multi-agent orchestration workflow.
+    - Configuration migration workflow.
+  - Model tests for `SpectraConfig` with serialization validation.
+- **Security Documentation**: New `doc/security.md` with detailed security features:
+  - Encryption implementation details.
+  - Key derivation process.
+  - Migration guide from legacy format.
+  - Security best practices and limitations.
+  - FAQ for common security questions.
+- **Testing Documentation**: New `doc/testing.md` with comprehensive testing guide:
+  - Test structure and organization.
+  - Running tests and coverage reports.
+  - Test categories (unit, integration, e2e).
+  - Testing best practices.
+  - Security and performance testing.
+  - CI/CD integration guidelines.
+
+### Changed
+- **ConfigService**: Refactored to use encrypted storage instead of plain YAML.
+  - All API keys now stored securely in encrypted format.
+  - Legacy `config.yaml` automatically migrated on first load.
+  - New `clearConfig()` and `hasConfig` methods for better management.
+- **SpectraConfig Model**: Enhanced with secure storage support.
+  - New `fromMap()` factory for encrypted storage deserialization.
+  - New `toMap()` method for encrypted storage serialization.
+  - Maintains backward compatibility with YAML format for migration.
+- **README**: Updated with security features and completed roadmap items.
+  - Added "Security Features" section highlighting encryption.
+  - Marked "Expand Test Coverage" and "Security Hardening" as complete.
+  - Updated configuration description to mention encrypted storage.
+
+### Dependencies
+- Added `path` ^1.9.0 for cross-platform path handling.
+
+### Security
+- **Breaking Change**: API keys are no longer stored in plain text.
+  - Existing `~/.spectra/config.yaml` will be automatically migrated.
+  - Backup your keys before upgrading if you want to preserve plain-text access.
+  - After migration, legacy `config.yaml` is deleted for security.
+
+### Fixed
+- Eliminated plain-text API key storage vulnerability.
+- Improved test isolation with proper setup/teardown in all test files.
+
 ## [0.1.4] - 2026-01-08
 
 ### Changed

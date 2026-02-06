@@ -42,28 +42,29 @@ class GeminiProvider implements LLMProvider {
   String get defaultModel => _defaultModel;
 
   @override
-  Future<String> generateResponse(String prompt,
-      {List<String>? context}) async {
-    final fullPrompt =
-        context != null ? '${context.join('\n')}\n\n$prompt' : prompt;
+  Future<String> generateResponse(
+    String prompt, {
+    List<String>? context,
+  }) async {
+    final fullPrompt = context != null
+        ? '${context.join('\n')}\n\n$prompt'
+        : prompt;
 
     final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent');
+      'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent',
+    );
 
     final response = await HttpUtils.postWithRetry(
       url,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
+      headers: {'Content-Type': 'application/json', 'x-goog-api-key': apiKey},
       body: jsonEncode({
         'contents': [
           {
             'parts': [
-              {'text': fullPrompt}
-            ]
-          }
-        ]
+              {'text': fullPrompt},
+            ],
+          },
+        ],
       }),
       timeout: timeout,
     );
@@ -77,7 +78,8 @@ class GeminiProvider implements LLMProvider {
       }
     } else {
       throw Exception(
-          'Failed to generate response from Gemini: ${response.body}');
+        'Failed to generate response from Gemini: ${response.body}',
+      );
     }
   }
 }

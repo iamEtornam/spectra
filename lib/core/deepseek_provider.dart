@@ -38,10 +38,13 @@ class DeepSeekProvider implements LLMProvider {
   String get defaultModel => _defaultModel;
 
   @override
-  Future<String> generateResponse(String prompt,
-      {List<String>? context}) async {
-    final fullPrompt =
-        context != null ? '${context.join('\n')}\n\n$prompt' : prompt;
+  Future<String> generateResponse(
+    String prompt, {
+    List<String>? context,
+  }) async {
+    final fullPrompt = context != null
+        ? '${context.join('\n')}\n\n$prompt'
+        : prompt;
 
     final response = await HttpUtils.postWithRetry(
       Uri.parse('https://api.deepseek.com/v1/chat/completions'),
@@ -52,7 +55,7 @@ class DeepSeekProvider implements LLMProvider {
       body: jsonEncode({
         'model': modelName,
         'messages': [
-          {'role': 'user', 'content': fullPrompt}
+          {'role': 'user', 'content': fullPrompt},
         ],
       }),
       timeout: timeout,
@@ -63,7 +66,8 @@ class DeepSeekProvider implements LLMProvider {
       return data['choices'][0]['message']['content'] as String;
     } else {
       throw Exception(
-          'Failed to generate response from DeepSeek: ${response.body}');
+        'Failed to generate response from DeepSeek: ${response.body}',
+      );
     }
   }
 }

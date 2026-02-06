@@ -61,12 +61,15 @@ class HttpUtils {
       try {
         final response = await http
             .post(url, headers: headers, body: body)
-            .timeout(timeout, onTimeout: () {
-          throw RequestTimeoutException(
-            message: 'Request to $url timed out',
-            timeout: timeout,
-          );
-        });
+            .timeout(
+              timeout,
+              onTimeout: () {
+                throw RequestTimeoutException(
+                  message: 'Request to $url timed out',
+                  timeout: timeout,
+                );
+              },
+            );
 
         // Check for rate limiting
         if (response.statusCode == 429) {

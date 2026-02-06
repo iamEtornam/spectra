@@ -15,14 +15,16 @@ class NewCommand extends SpectraCommand {
 
   @override
   Future<void> run() async {
-    logger.info(lightCyan.wrap('''
+    logger.info(
+      lightCyan.wrap('''
   ███████╗██████╗ ███████╗ ██████╗████████╗██████╗  █████╗ 
   ██╔════╝██╔══██╗██╔════╝██╔════╝╚══██╔══╝██╔══██╗██╔══██╗
   ███████╗██████╔╝█████╗  ██║        ██║   ██████╔╝███████║
   ╚════██║██╔═══╝ ██╔══╝  ██║        ██║   ██╔══██╗██╔══██║
   ███████║██║     ███████╗╚██████╗   ██║   ██║  ██║██║  ██║
   ╚══════╝╚═╝     ╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
-''')!);
+''')!,
+    );
 
     logger.info('Welcome to Spectra! Let\'s set up your project.');
 
@@ -35,24 +37,30 @@ class NewCommand extends SpectraCommand {
         ? Input(prompt: 'Enter custom project name:').interact()
         : ['Spectra App', 'My Awesome CLI'][projectName];
 
-    final description =
-        Input(prompt: 'Briefly describe your project:').interact();
+    final description = Input(
+      prompt: 'Briefly describe your project:',
+    ).interact();
 
     final stack = Select(
       prompt: 'What is your tech stack?',
       options: ['Dart/CLI', 'Flutter/Mobile', 'React/Web', 'Other'],
     ).interact();
 
-    final actualStack =
-        ['Dart/CLI', 'Flutter/Mobile', 'React/Web', 'Other'][stack];
+    final actualStack = [
+      'Dart/CLI',
+      'Flutter/Mobile',
+      'React/Web',
+      'Other',
+    ][stack];
 
     logger.info('\nSummary:');
     logger.info('Project: $actualName');
     logger.info('Description: $description');
     logger.info('Stack: $actualStack');
 
-    final confirm =
-        Confirm(prompt: 'Initialize .spectra directory?').interact();
+    final confirm = Confirm(
+      prompt: 'Initialize .spectra directory?',
+    ).interact();
 
     if (confirm) {
       _initializeSpectra(actualName, description, actualStack);

@@ -21,7 +21,8 @@ class PlanCommand extends SpectraCommand {
     final argResults = this.argResults;
     if (argResults == null || argResults.rest.isEmpty) {
       logger.err(
-          'Please specify a phase to plan (e.g., spectra plan "Phase 1").');
+        'Please specify a phase to plan (e.g., spectra plan "Phase 1").',
+      );
       return;
     }
 
@@ -41,13 +42,15 @@ class PlanCommand extends SpectraCommand {
     final provider = await _llmService.getPreferredProvider();
     if (provider == null) {
       logger.err(
-          'No LLM provider configured. Run `spectra config` to set up a provider.');
+        'No LLM provider configured. Run `spectra config` to set up a provider.',
+      );
       return;
     }
 
     logger.info('Planning tasks for $phase using ${provider.name}...');
 
-    final prompt = '''
+    final prompt =
+        '''
 You are a software architect. Break the following phase into atomic, implementable tasks.
 Each task must be wrapped in a <task> XML tag following this structure:
 <task id="1" type="implement">
@@ -80,7 +83,8 @@ Return ONLY the XML tasks, one per line.
         return;
       }
 
-      final planContent = '''
+      final planContent =
+          '''
 # PLAN: $phase
 
 ${tasks.map((t) => t.toXml()).join('\n\n')}

@@ -15,7 +15,7 @@ class ClaudeProvider implements LLMProvider {
     'claude-opus-4-1',
     'claude-sonnet-4-0',
     'claude-3-7-sonnet-latest',
-    'claude-opus-4-0'
+    'claude-opus-4-0',
   ];
 
   final String apiKey;
@@ -43,10 +43,13 @@ class ClaudeProvider implements LLMProvider {
   String get defaultModel => _defaultModel;
 
   @override
-  Future<String> generateResponse(String prompt,
-      {List<String>? context}) async {
-    final fullPrompt =
-        context != null ? '${context.join('\n')}\n\n$prompt' : prompt;
+  Future<String> generateResponse(
+    String prompt, {
+    List<String>? context,
+  }) async {
+    final fullPrompt = context != null
+        ? '${context.join('\n')}\n\n$prompt'
+        : prompt;
 
     final response = await HttpUtils.postWithRetry(
       Uri.parse('https://api.anthropic.com/v1/messages'),
@@ -59,7 +62,7 @@ class ClaudeProvider implements LLMProvider {
         'model': modelName,
         'max_tokens': 4096,
         'messages': [
-          {'role': 'user', 'content': fullPrompt}
+          {'role': 'user', 'content': fullPrompt},
         ],
       }),
       timeout: timeout,
@@ -70,7 +73,8 @@ class ClaudeProvider implements LLMProvider {
       return data['content'][0]['text'] as String;
     } else {
       throw Exception(
-          'Failed to generate response from Claude: ${response.body}');
+        'Failed to generate response from Claude: ${response.body}',
+      );
     }
   }
 }

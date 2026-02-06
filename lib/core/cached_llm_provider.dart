@@ -16,11 +16,9 @@ class CachedLLMProvider implements LLMProvider {
   ///
   /// [delegate] - The underlying LLM provider to wrap.
   /// [cache] - The cache instance to use (shared across providers if desired).
-  CachedLLMProvider({
-    required LLMProvider delegate,
-    required LLMCache cache,
-  })  : _delegate = delegate,
-        _cache = cache;
+  CachedLLMProvider({required LLMProvider delegate, required LLMCache cache})
+    : _delegate = delegate,
+      _cache = cache;
 
   @override
   String get name => _delegate.name;
@@ -32,8 +30,10 @@ class CachedLLMProvider implements LLMProvider {
   String get defaultModel => _delegate.defaultModel;
 
   @override
-  Future<String> generateResponse(String prompt,
-      {List<String>? context}) async {
+  Future<String> generateResponse(
+    String prompt, {
+    List<String>? context,
+  }) async {
     // Try cache first
     final cached = _cache.get(prompt, name, context: context);
     if (cached != null) {
@@ -53,13 +53,12 @@ class CachedLLMProvider implements LLMProvider {
 
   /// Returns cache statistics for this provider.
   Map<String, dynamic> get stats => {
-        'provider': name,
-        'cacheHits': _cacheHits,
-        'cacheMisses': _cacheMisses,
-        'hitRate': _cacheHits + _cacheMisses > 0
-            ? (_cacheHits / (_cacheHits + _cacheMisses) * 100)
-                .toStringAsFixed(1)
-            : '0.0',
-        ..._cache.stats,
-      };
+    'provider': name,
+    'cacheHits': _cacheHits,
+    'cacheMisses': _cacheMisses,
+    'hitRate': _cacheHits + _cacheMisses > 0
+        ? (_cacheHits / (_cacheHits + _cacheMisses) * 100).toStringAsFixed(1)
+        : '0.0',
+    ..._cache.stats,
+  };
 }

@@ -28,7 +28,8 @@ class WitnessAgent extends SpectraAgent {
         final inactiveDuration = now.difference(agent.lastActivity);
         if (inactiveDuration > timeoutThreshold) {
           logger.warn(
-              '[Witness $id] Agent ${agent.id} seems stuck (inactive for ${inactiveDuration.inMinutes}m).');
+            '[Witness $id] Agent ${agent.id} seems stuck (inactive for ${inactiveDuration.inMinutes}m).',
+          );
           agent.updateStatus(AgentStatus.stuck);
         }
       }

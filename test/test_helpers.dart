@@ -23,8 +23,8 @@ class FakeLLMProvider implements LLMProvider {
   FakeLLMProvider({
     String name = 'FakeProvider',
     String response = 'Fake response',
-  })  : _name = name,
-        _response = response;
+  }) : _name = name,
+       _response = response;
 
   @override
   String get name => _name;
@@ -36,8 +36,10 @@ class FakeLLMProvider implements LLMProvider {
   String get defaultModel => 'fake-model-1';
 
   @override
-  Future<String> generateResponse(String prompt,
-      {List<String>? context}) async {
+  Future<String> generateResponse(
+    String prompt, {
+    List<String>? context,
+  }) async {
     return _response;
   }
 }

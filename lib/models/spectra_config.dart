@@ -59,6 +59,42 @@ class SpectraConfig {
     };
   }
 
+  /// Creates a SpectraConfig from a map (used for secure storage).
+  factory SpectraConfig.fromMap(Map<String, String> map) {
+    return SpectraConfig(
+      geminiKey: map['gemini_key'],
+      openaiKey: map['openai_key'],
+      claudeKey: map['claude_key'],
+      grokKey: map['grok_key'],
+      deepseekKey: map['deepseek_key'],
+      geminiModel: map['gemini_model'],
+      openaiModel: map['openai_model'],
+      claudeModel: map['claude_model'],
+      grokModel: map['grok_model'],
+      deepseekModel: map['deepseek_model'],
+      preferredProvider: map['preferred_provider'],
+    );
+  }
+
+  /// Converts to a map (used for secure storage).
+  Map<String, String> toMap() {
+    final map = <String, String>{};
+    if (geminiKey != null) map['gemini_key'] = geminiKey!;
+    if (openaiKey != null) map['openai_key'] = openaiKey!;
+    if (claudeKey != null) map['claude_key'] = claudeKey!;
+    if (grokKey != null) map['grok_key'] = grokKey!;
+    if (deepseekKey != null) map['deepseek_key'] = deepseekKey!;
+    if (geminiModel != null) map['gemini_model'] = geminiModel!;
+    if (openaiModel != null) map['openai_model'] = openaiModel!;
+    if (claudeModel != null) map['claude_model'] = claudeModel!;
+    if (grokModel != null) map['grok_model'] = grokModel!;
+    if (deepseekModel != null) map['deepseek_model'] = deepseekModel!;
+    if (preferredProvider != null) {
+      map['preferred_provider'] = preferredProvider!;
+    }
+    return map;
+  }
+
   SpectraConfig copyWith({
     String? geminiKey,
     String? openaiKey,

@@ -64,10 +64,10 @@ abstract class SpectraAgent {
 
   /// Returns the current state of this agent as an immutable snapshot.
   AgentState get state => AgentState(
-        id: id,
-        role: role,
-        status: status,
-        currentTaskId: currentTaskId,
-        lastActivity: lastActivity,
-      );
+    id: id,
+    role: role,
+    status: status,
+    currentTaskId: currentTaskId,
+    lastActivity: lastActivity,
+  );
 }

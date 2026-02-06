@@ -39,11 +39,13 @@ class ProgressCommand extends SpectraCommand {
 
     final totalTasks = RegExp(r'- \[( |x)\]').allMatches(content).length;
     final completedTasks = RegExp(r'- \[x\]').allMatches(content).length;
-    final percent =
-        totalTasks == 0 ? 0 : (completedTasks / totalTasks * 100).toInt();
+    final percent = totalTasks == 0
+        ? 0
+        : (completedTasks / totalTasks * 100).toInt();
 
     logger.info(
-        '\nOverall Completion: $percent% ($completedTasks/$totalTasks tasks)');
+      '\nOverall Completion: $percent% ($completedTasks/$totalTasks tasks)',
+    );
   }
 
   void _showAgentStatus() {

@@ -41,11 +41,7 @@ class StartCommand extends SpectraCommand {
 
     final orchestrator = OrchestratorService(logger: logger);
 
-    final convoy = Convoy(
-      id: 'plan-main',
-      name: 'Main Plan',
-      tasks: tasks,
-    );
+    final convoy = Convoy(id: 'plan-main', name: 'Main Plan', tasks: tasks);
 
     orchestrator.addConvoy(convoy);
 

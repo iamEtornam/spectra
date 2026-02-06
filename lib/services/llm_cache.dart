@@ -59,8 +59,12 @@ class LLMCache {
   }
 
   /// Caches a response.
-  void put(String prompt, String model, String response,
-      {List<String>? context}) {
+  void put(
+    String prompt,
+    String model,
+    String response, {
+    List<String>? context,
+  }) {
     final key = _generateKey(prompt, model, context);
 
     // Check if this is an update to an existing entry
@@ -104,10 +108,10 @@ class LLMCache {
 
   /// Returns cache statistics.
   Map<String, dynamic> get stats => {
-        'entries': _cache.length,
-        'maxEntries': maxEntries,
-        'ttlHours': ttl.inHours,
-      };
+    'entries': _cache.length,
+    'maxEntries': maxEntries,
+    'ttlHours': ttl.inHours,
+  };
 
   /// Loads cache from disk if persist file exists.
   void _loadFromDisk() {

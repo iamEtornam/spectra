@@ -1,0 +1,84 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      
+      - name: Install dependencies
+        run: dart pub get
+      
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+      
+      - name: Analyze project
+        run: dart analyze --fatal-infos
+      
+      - name: Run model tests
+        run: dart test test/models/
+      
+      - name: Run service tests
+        run: dart test test/services/secure_storage_service_test.dart
+      
+      - name: Run agent tests
+        run: dart test test/agents/
+      
+      - name: Run utility tests
+        run: dart test test/utils/
+      
+      - name: Run command tests
+        run: dart test test/commands/
+      
+      - name: Run e2e tests
+        run: dart test test/e2e/
+      
+      - name: Generate coverage
+        run: |
+          dart test --coverage=coverage
+          dart pub global activate coverage
+          dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+      
+      - name: Check for security issues
+        run: |
+          dart pub get
+          dart pub outdated --mode=null-safety
+      
+      - name: Verify no secrets in code
+        run: |
+          if grep -r "sk-" lib/ || grep -r "AIza" lib/; then
+            echo "Potential API key found in code!"
+            exit 1
+          fi

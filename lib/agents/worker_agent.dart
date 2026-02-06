@@ -35,8 +35,9 @@ class WorkerAgent extends SpectraAgent {
     required super.logger,
     this.onTaskCompleted,
     CodebaseContextService? contextService,
-  })  : _contextService = contextService ?? CodebaseContextService(logger: logger),
-        super(role: AgentRole.worker);
+  }) : _contextService =
+           contextService ?? CodebaseContextService(logger: logger),
+       super(role: AgentRole.worker);
 
   /// The currently assigned task, if any.
   SpectraTask? get activeTask => _activeTask;
@@ -62,7 +63,8 @@ class WorkerAgent extends SpectraAgent {
     final codebaseContext = _contextService.getCodebaseContext(task.files);
     final fileContext = _getFileContext(task.files);
 
-    final prompt = '''
+    final prompt =
+        '''
 You are an expert developer working on a real codebase. Implement the following task with full awareness of the project context.
 
 $codebaseContext
@@ -101,7 +103,8 @@ IMPORTANT: Only generate code that is relevant to this codebase. Do not invent n
 
       if (fileContents.isEmpty) {
         logger.warn(
-            '[Agent $id] No file contents generated for Task #${task.id}');
+          '[Agent $id] No file contents generated for Task #${task.id}',
+        );
         _completeTask(task.id, success: false);
         return;
       }

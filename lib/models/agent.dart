@@ -58,19 +58,19 @@ class AgentState {
 
   /// Serializes this state to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'role': role.name,
-        'status': status.name,
-        'currentTaskId': currentTaskId,
-        'lastActivity': lastActivity.toIso8601String(),
-      };
+    'id': id,
+    'role': role.name,
+    'status': status.name,
+    'currentTaskId': currentTaskId,
+    'lastActivity': lastActivity.toIso8601String(),
+  };
 
   /// Deserializes an agent state from a JSON map.
   factory AgentState.fromJson(Map<String, dynamic> json) => AgentState(
-        id: json['id'] as String,
-        role: AgentRole.values.byName(json['role'] as String),
-        status: AgentStatus.values.byName(json['status'] as String),
-        currentTaskId: json['currentTaskId'] as String?,
-        lastActivity: DateTime.parse(json['lastActivity'] as String),
-      );
+    id: json['id'] as String,
+    role: AgentRole.values.byName(json['role'] as String),
+    status: AgentStatus.values.byName(json['status'] as String),
+    currentTaskId: json['currentTaskId'] as String?,
+    lastActivity: DateTime.parse(json['lastActivity'] as String),
+  );
 }

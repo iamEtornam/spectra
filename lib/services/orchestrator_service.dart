@@ -85,19 +85,23 @@ class OrchestratorService {
     logger.info('Spectra Multi-Agent Orchestrator starting...');
 
     // Initialize Agents
-    _agents.add(MayorAgent(
-      id: 'Mayor-1',
-      provider: provider,
-      logger: logger,
-      orchestrator: this,
-    ));
+    _agents.add(
+      MayorAgent(
+        id: 'Mayor-1',
+        provider: provider,
+        logger: logger,
+        orchestrator: this,
+      ),
+    );
 
-    _agents.add(WitnessAgent(
-      id: 'Witness-1',
-      provider: provider,
-      logger: logger,
-      orchestrator: this,
-    ));
+    _agents.add(
+      WitnessAgent(
+        id: 'Witness-1',
+        provider: provider,
+        logger: logger,
+        orchestrator: this,
+      ),
+    );
 
     for (var i = 1; i <= workerCount; i++) {
       final worker = WorkerAgent(
@@ -172,13 +176,15 @@ class OrchestratorService {
 
     if (failureCount >= config.maxConsecutiveFailures) {
       logger.err(
-          '[${agent.id}] Exceeded max failures ($failureCount). Marking as FAILED.');
+        '[${agent.id}] Exceeded max failures ($failureCount). Marking as FAILED.',
+      );
       agent.updateStatus(AgentStatus.failed);
 
       // If it's a worker, release the task
       if (agent is WorkerAgent && agent.currentTaskId != null) {
         logger.warn(
-            '[${agent.id}] Releasing task ${agent.currentTaskId} back to pool.');
+          '[${agent.id}] Releasing task ${agent.currentTaskId} back to pool.',
+        );
         agent.currentTaskId = null;
       }
     }
@@ -196,13 +202,15 @@ class OrchestratorService {
       if (agent.status == AgentStatus.working &&
           inactivityDuration > config.stuckThreshold) {
         logger.warn(
-            '[${agent.id}] Detected as stuck (inactive for ${inactivityDuration.inMinutes}min). Recovering...');
+          '[${agent.id}] Detected as stuck (inactive for ${inactivityDuration.inMinutes}min). Recovering...',
+        );
         agent.updateStatus(AgentStatus.stuck);
 
         // If it's a worker, release the task
         if (agent is WorkerAgent && agent.currentTaskId != null) {
           logger.warn(
-              '[${agent.id}] Releasing task ${agent.currentTaskId} for reassignment.');
+            '[${agent.id}] Releasing task ${agent.currentTaskId} for reassignment.',
+          );
           agent.currentTaskId = null;
         }
 
@@ -300,7 +308,8 @@ class OrchestratorService {
   List<SpectraTask> getPendingTasks() {
     final assignedTaskIds = _agents
         .where(
-            (a) => a.currentTaskId != null && a.status == AgentStatus.working)
+          (a) => a.currentTaskId != null && a.status == AgentStatus.working,
+        )
         .map((a) => a.currentTaskId!)
         .toSet();
 
@@ -308,10 +317,13 @@ class OrchestratorService {
         .where((c) => c.status != 'completed')
         .expand((c) => c.tasks)
         .where((t) {
-      // Not assigned and not completed
-      final completed = _taskHistory.values.any((list) => list.contains(t.id));
-      return !assignedTaskIds.contains(t.id) && !completed;
-    }).toList();
+          // Not assigned and not completed
+          final completed = _taskHistory.values.any(
+            (list) => list.contains(t.id),
+          );
+          return !assignedTaskIds.contains(t.id) && !completed;
+        })
+        .toList();
   }
 
   /// Gets all registered agents.
@@ -324,13 +336,15 @@ class OrchestratorService {
 
   /// Gets orchestrator statistics.
   Map<String, dynamic> get stats => {
-        'isRunning': _isRunning,
-        'agentCount': _agents.length,
-        'convoyCount': _convoys.length,
-        'pendingTaskCount': getPendingTasks().length,
-        'completedConvoyCount':
-            _convoys.where((c) => c.status == 'completed').length,
-        'failedAgentCount':
-            _agents.where((a) => a.status == AgentStatus.failed).length,
-      };
+    'isRunning': _isRunning,
+    'agentCount': _agents.length,
+    'convoyCount': _convoys.length,
+    'pendingTaskCount': getPendingTasks().length,
+    'completedConvoyCount': _convoys
+        .where((c) => c.status == 'completed')
+        .length,
+    'failedAgentCount': _agents
+        .where((a) => a.status == AgentStatus.failed)
+        .length,
+  };
 }

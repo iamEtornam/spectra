@@ -74,7 +74,8 @@ class ExecuteCommand extends SpectraCommand {
     final filePaths = files.map((f) => f.innerText).toList();
     final fileContext = _getFileContext(filePaths);
 
-    final prompt = '''
+    final prompt =
+        '''
 You are an expert developer. Implement the following task.
 TASK: $name
 OBJECTIVE: $objective
@@ -157,7 +158,9 @@ void main() {}
       // Since our XML is in the markdown, let's just ensure we can track it.
       // For now, let's just log it. A better way would be a STATUS attribute.
       content = content.replaceFirst(
-          '<task id="$taskId"', '<task id="$taskId" status="completed"');
+        '<task id="$taskId"',
+        '<task id="$taskId" status="completed"',
+      );
       planFile.writeAsStringSync(content);
     }
   }
@@ -176,8 +179,10 @@ void main() {}
 
   Map<String, String> _parseFileContents(String response) {
     final contents = <String, String>{};
-    final fileRegex = RegExp(r'<file_content path="(.*?)">(.*?)</file_content>',
-        dotAll: true);
+    final fileRegex = RegExp(
+      r'<file_content path="(.*?)">(.*?)</file_content>',
+      dotAll: true,
+    );
     final matches = fileRegex.allMatches(response);
 
     for (final match in matches) {

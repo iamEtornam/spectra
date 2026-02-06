@@ -39,16 +39,18 @@ void main() {
       verifyNever(() => mockLogger.info(any()));
     });
 
-    test('pruneState should do nothing if STATE.md has less than 200 lines',
-        () {
-      final stateFile = File('${tempDir.path}/.spectra/STATE.md');
-      final lines = List.generate(100, (i) => 'Line $i');
-      stateFile.writeAsStringSync(lines.join('\n'));
+    test(
+      'pruneState should do nothing if STATE.md has less than 200 lines',
+      () {
+        final stateFile = File('${tempDir.path}/.spectra/STATE.md');
+        final lines = List.generate(100, (i) => 'Line $i');
+        stateFile.writeAsStringSync(lines.join('\n'));
 
-      stateManager.pruneState();
+        stateManager.pruneState();
 
-      verifyNever(() => mockLogger.info(any()));
-    });
+        verifyNever(() => mockLogger.info(any()));
+      },
+    );
 
     test('pruneState should prune STATE.md if it exceeds 200 lines', () {
       final stateFile = File('${tempDir.path}/.spectra/STATE.md');

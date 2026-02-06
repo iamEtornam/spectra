@@ -31,8 +31,10 @@ These components are combined and processed using:
 
 - **Algorithm**: XOR-based stream cipher with SHA-256 derived keystream
 - **Key Size**: 256 bits
-- **Deterministic**: Same machine always produces the same encryption key
-- **Machine-Bound**: Keys cannot be decrypted on different machines
+- **IV (Initialization Vector)**: Random 16-byte IV per encryption using `Random.secure()`
+- **Non-Deterministic**: Same data produces different ciphertext each time
+- **Machine-Bound**: Encryption keys cannot be decrypted on different machines
+- **Format**: `[IV (16 bytes)][Encrypted Data]`
 
 ## Storage Structure
 

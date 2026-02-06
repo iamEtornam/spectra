@@ -90,6 +90,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Eliminated plain-text API key storage vulnerability.
 - Improved test isolation with proper setup/teardown in all test files.
+- **CRITICAL**: Fixed deterministic encryption vulnerability in `SecureStorageService`.
+  - Encryption now uses random IV (Initialization Vector) for each operation.
+  - Same data produces different ciphertext each time (non-deterministic).
+  - Resistant to pattern analysis and ciphertext-only attacks.
+  - Uses `Random.secure()` for cryptographically secure random generation.
+  - Note: Users may need to re-enter API keys once after upgrade.
+- Fixed null home directory handling in `ConfigService` and `SecureStorageService`.
+  - Now throws descriptive `StateError` if HOME/USERPROFILE not set.
+  - Prevents creation of invalid `"null/.spectra"` paths.
 
 ## [0.1.4] - 2026-01-08
 

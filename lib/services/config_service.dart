@@ -17,6 +17,11 @@ class ConfigService {
   File get _configFile {
     final home =
         Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    if (home == null) {
+      throw StateError(
+        'Unable to determine home directory. Neither HOME nor USERPROFILE environment variables are set.',
+      );
+    }
     final configDir = Directory('$home/.spectra');
     if (!configDir.existsSync()) {
       configDir.createSync(recursive: true);

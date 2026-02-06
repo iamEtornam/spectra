@@ -18,7 +18,12 @@ class SecureStorageService {
   Directory get _secureDir {
     final home =
         Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-    final dir = Directory(path.join(home!, '.spectra', '.secure'));
+    if (home == null) {
+      throw StateError(
+        'Unable to determine home directory. Neither HOME nor USERPROFILE environment variables are set.',
+      );
+    }
+    final dir = Directory(path.join(home, '.spectra', '.secure'));
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
@@ -99,23 +104,57 @@ class SecureStorageService {
     return result.sublist(0, keyLength);
   }
 
-  /// Simple XOR-based encryption (AES-256-like).
+  /// Simple XOR-based encryption with random IV.
   ///
-  /// This uses XOR encryption with a key stream generated from the machine key.
-  /// For production use, consider using a proper AES implementation.
+  /// This uses XOR encryption with a key stream generated from the machine key
+  /// and a random IV (Initialization Vector) to ensure non-deterministic encryption.
+  /// The IV is prepended to the ciphertext.
+  ///
+  /// Format: [IV (16 bytes)][Encrypted Data]
   List<int> _encrypt(List<int> data, List<int> key) {
-    final random = Random(key.fold<int>(0, (a, b) => a + b));
-    final keyStream = List.generate(data.length, (_) => random.nextInt(256));
+    // Generate random IV (16 bytes)
+    final random = Random.secure();
+    final iv = List.generate(16, (_) => random.nextInt(256));
 
-    return List.generate(
+    // Create keystream using key + IV for non-deterministic encryption
+    final keySeed = key.fold<int>(0, (a, b) => a + b) +
+        iv.fold<int>(0, (a, b) => a + b);
+    final streamRandom = Random(keySeed);
+    final keyStream = List.generate(data.length, (_) => streamRandom.nextInt(256));
+
+    // Encrypt: data XOR key XOR keystream
+    final encrypted = List.generate(
       data.length,
       (i) => data[i] ^ key[i % key.length] ^ keyStream[i],
     );
+
+    // Prepend IV to ciphertext
+    return [...iv, ...encrypted];
   }
 
   /// Simple XOR-based decryption.
+  ///
+  /// Extracts the IV from the first 16 bytes, then decrypts the remaining data.
   List<int> _decrypt(List<int> data, List<int> key) {
-    return _encrypt(data, key); // XOR is symmetric
+    if (data.length < 16) {
+      throw ArgumentError('Invalid encrypted data: too short');
+    }
+
+    // Extract IV from first 16 bytes
+    final iv = data.sublist(0, 16);
+    final encrypted = data.sublist(16);
+
+    // Recreate keystream using key + IV
+    final keySeed = key.fold<int>(0, (a, b) => a + b) +
+        iv.fold<int>(0, (a, b) => a + b);
+    final streamRandom = Random(keySeed);
+    final keyStream = List.generate(encrypted.length, (_) => streamRandom.nextInt(256));
+
+    // Decrypt: encrypted XOR key XOR keystream
+    return List.generate(
+      encrypted.length,
+      (i) => encrypted[i] ^ key[i % key.length] ^ keyStream[i],
+    );
   }
 
   /// Stores sensitive data securely.

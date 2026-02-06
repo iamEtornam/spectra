@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:interact/interact.dart';
+import 'package:spectra_cli/models/llm_usage_type.dart';
 import 'package:spectra_cli/services/llm_service.dart';
 import 'base_command.dart';
 
@@ -30,13 +31,18 @@ class MapCommand extends SpectraCommand {
         .map((f) => f.path.replaceFirst(currentDir.path, ''))
         .toList();
 
-    final provider = await _llmService.getPreferredProvider();
+    // Use planning provider for architecture analysis
+    final provider = await _llmService.getProviderForUsage(
+      LLMUsageType.planning,
+    );
     if (provider == null) {
-      logger.err('No LLM provider configured.');
+      logger.err('No planning provider configured.');
       return;
     }
 
-    logger.info('Analyzing architecture using ${provider.name}...');
+    logger.info(
+      'Analyzing architecture using ${provider.name} (Strategic Analysis)...',
+    );
 
     final prompt =
         '''

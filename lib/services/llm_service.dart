@@ -5,10 +5,16 @@ import '../core/claude_provider.dart';
 import '../core/gemini_provider.dart';
 import '../core/llm_provider.dart';
 import '../core/openai_provider.dart';
+import '../core/grok_provider.dart';
+import '../core/deepseek_provider.dart';
+import '../models/llm_usage_type.dart';
 import 'config_service.dart';
 import 'llm_cache.dart';
 
 /// Service for managing LLM providers with optional caching.
+///
+/// Supports separate provider configuration for planning and coding tasks,
+/// allowing users to optimize for cost, performance, or capability.
 class LLMService {
   final ConfigService _configService = ConfigService();
   LLMCache? _cache;
@@ -29,10 +35,43 @@ class LLMService {
     }
   }
 
-  /// Gets the user's preferred LLM provider.
+  /// Gets the appropriate LLM provider based on usage type.
+  ///
+  /// [usageType] - The type of task (planning or coding).
+  ///
+  /// For [LLMUsageType.planning]: Uses planningProvider from config,
+  /// falls back to preferredProvider or Gemini.
+  ///
+  /// For [LLMUsageType.coding]: Uses codingProvider from config,
+  /// falls back to preferredProvider or Gemini.
+  ///
+  /// Returns null if no provider is configured with valid API keys.
+  Future<LLMProvider?> getProviderForUsage(LLMUsageType usageType) async {
+    final config = await _configService.loadConfig();
+
+    String? providerName;
+
+    switch (usageType) {
+      case LLMUsageType.planning:
+        providerName =
+            config.planningProvider ?? config.preferredProvider ?? 'gemini';
+        break;
+      case LLMUsageType.coding:
+        providerName =
+            config.codingProvider ?? config.preferredProvider ?? 'gemini';
+        break;
+    }
+
+    return getProvider(providerName);
+  }
+
+  /// Gets the user's preferred LLM provider (legacy method).
+  ///
+  /// For new code, prefer using [getProviderForUsage] with explicit usage type.
+  @Deprecated('Use getProviderForUsage(LLMUsageType) instead')
   Future<LLMProvider?> getPreferredProvider() async {
     final config = await _configService.loadConfig();
-    final providerName = config.preferredProvider ?? 'Gemini';
+    final providerName = config.preferredProvider ?? 'gemini';
     return getProvider(providerName);
   }
 
@@ -64,6 +103,21 @@ class LLMService {
           apiKey: config.geminiKey!,
           modelName:
               config.geminiModel ?? GeminiProvider(apiKey: '').defaultModel,
+        );
+        break;
+      case 'grok':
+        if (config.grokKey == null) return null;
+        provider = GrokProvider(
+          apiKey: config.grokKey!,
+          modelName: config.grokModel ?? GrokProvider(apiKey: '').defaultModel,
+        );
+        break;
+      case 'deepseek':
+        if (config.deepseekKey == null) return null;
+        provider = DeepSeekProvider(
+          apiKey: config.deepseekKey!,
+          modelName:
+              config.deepseekModel ?? DeepSeekProvider(apiKey: '').defaultModel,
         );
         break;
       default:

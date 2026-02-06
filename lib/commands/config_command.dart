@@ -108,13 +108,66 @@ class ConfigCommand extends SpectraCommand {
       initialIndex: deepseekDefaultIndex != -1 ? deepseekDefaultIndex : 0,
     ).interact();
 
-    // Preferred Provider
-    final providers = ['Gemini', 'OpenAI', 'Claude', 'Grok', 'DeepSeek'];
+    // Provider Selection Strategy
+    logger.info('\n--- Provider Strategy ---');
+    logger.info(
+      'Separate providers for different tasks (recommended for cost optimization):',
+    );
+    logger.detail(
+      '  • Planning: Strategic analysis, task breakdown, documentation',
+    );
+    logger.detail('  • Coding: Actual code generation, file implementation');
+
+    final providers = ['gemini', 'openai', 'claude', 'grok', 'deepseek'];
+    final providerLabels = ['Gemini', 'OpenAI', 'Claude', 'Grok', 'DeepSeek'];
+
+    // Planning Provider
+    final planningProviderIndex = Select(
+      prompt:
+          'Planning Provider (roadmap analysis, task breakdown) [Recommended: Claude]',
+      options: providerLabels,
+      initialIndex: currentConfig.planningProvider != null
+          ? providers.indexOf(currentConfig.planningProvider!)
+          : (currentConfig.preferredProvider != null
+                ? providers.indexOf(currentConfig.preferredProvider!)
+                : 0),
+    ).interact();
+
+    // Coding Provider
+    final codingProviderIndex = Select(
+      prompt:
+          'Coding Provider (code generation, implementation) [Recommended: Gemini Flash]',
+      options: providerLabels,
+      initialIndex: currentConfig.codingProvider != null
+          ? providers.indexOf(currentConfig.codingProvider!)
+          : (currentConfig.preferredProvider != null
+                ? providers.indexOf(currentConfig.preferredProvider!)
+                : 0),
+    ).interact();
+
+    // Legacy Preferred Provider (for backward compatibility)
     final preferredProviderIndex = Select(
-      prompt: 'Select Preferred LLM Provider',
-      options: providers,
+      prompt: 'Default Provider (legacy fallback)',
+      options: providerLabels,
       initialIndex: currentConfig.preferredProvider != null
           ? providers.indexOf(currentConfig.preferredProvider!)
+          : 0,
+    ).interact();
+
+    // Execution Mode
+    logger.info('\n--- Execution Mode ---');
+    logger.info('How should Spectra execute tasks?');
+    final executionModes = ['automatic', 'manual', 'interactive'];
+    final executionModeLabels = [
+      'Automatic (AI generates code)',
+      'Manual (AI plans, you code)',
+      'Interactive (AI suggests, you review)',
+    ];
+    final executionModeIndex = Select(
+      prompt: 'Execution Mode',
+      options: executionModeLabels,
+      initialIndex: currentConfig.executionMode != null
+          ? executionModes.indexOf(currentConfig.executionMode!)
           : 0,
     ).interact();
 
@@ -129,11 +182,17 @@ class ConfigCommand extends SpectraCommand {
       geminiModel: geminiModels[geminiModelIndex],
       grokModel: grokModels[grokModelIndex],
       deepseekModel: deepseekModels[deepseekModelIndex],
+      planningProvider: providers[planningProviderIndex],
+      codingProvider: providers[codingProviderIndex],
       preferredProvider: providers[preferredProviderIndex],
+      executionMode: executionModes[executionModeIndex],
     );
 
     await _configService.saveConfig(newConfig);
     logger.success('\nConfiguration updated successfully!');
-    logger.info('Config saved to ~/.spectra/config.yaml');
+    logger.info('Planning provider: ${providerLabels[planningProviderIndex]}');
+    logger.info('Coding provider: ${providerLabels[codingProviderIndex]}');
+    logger.info('Execution mode: ${executionModeLabels[executionModeIndex]}');
+    logger.info('Config saved securely (encrypted)');
   }
 }

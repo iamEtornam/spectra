@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:spectra_cli/core/llm_provider.dart';
+import 'package:spectra_cli/models/execution_mode.dart';
+import 'package:spectra_cli/models/llm_usage_type.dart';
+import 'package:spectra_cli/services/config_service.dart';
 import 'package:spectra_cli/services/llm_service.dart';
 import 'package:spectra_cli/utils/state_manager.dart';
 import 'package:xml/xml.dart';
@@ -15,10 +18,25 @@ class ExecuteCommand extends SpectraCommand {
       'The execution engine: parses PLAN.md, applies changes, and commits.';
 
   final LLMService _llmService = LLMService();
+  final ConfigService _configService = ConfigService();
   late final StateManager _stateManager;
 
   ExecuteCommand({required super.logger}) {
     _stateManager = StateManager(logger: logger);
+
+    argParser.addFlag(
+      'manual',
+      abbr: 'm',
+      help: 'Manual mode: Show tasks without generating code',
+      negatable: false,
+    );
+
+    argParser.addFlag(
+      'auto',
+      abbr: 'a',
+      help: 'Automatic mode: Generate and apply code (default)',
+      negatable: false,
+    );
   }
 
   @override
@@ -37,13 +55,40 @@ class ExecuteCommand extends SpectraCommand {
       return;
     }
 
-    final provider = await _llmService.getPreferredProvider();
-    if (provider == null) {
-      logger.err('No LLM provider configured.');
+    // Determine execution mode
+    final config = await _configService.loadConfig();
+    final manualFlag = argResults?['manual'] as bool? ?? false;
+    final autoFlag = argResults?['auto'] as bool? ?? false;
+
+    final ExecutionMode mode;
+    if (manualFlag) {
+      mode = ExecutionMode.manual;
+    } else if (autoFlag) {
+      mode = ExecutionMode.automatic;
+    } else {
+      // Use config or default to automatic
+      final modeStr = config.executionMode ?? 'automatic';
+      mode = ExecutionMode.values.firstWhere(
+        (m) => m.name == modeStr,
+        orElse: () => ExecutionMode.automatic,
+      );
+    }
+
+    if (mode == ExecutionMode.manual) {
+      await _displayTasksForManualExecution(taskDocs);
       return;
     }
 
-    logger.info('Executing ${taskDocs.length} tasks using ${provider.name}...');
+    // Use coding provider for actual code generation
+    final provider = await _llmService.getProviderForUsage(LLMUsageType.coding);
+    if (provider == null) {
+      logger.err('No coding provider configured.');
+      return;
+    }
+
+    logger.info(
+      'Executing ${taskDocs.length} tasks using ${provider.name} (Code Generation)...',
+    );
 
     for (final taskDoc in taskDocs) {
       await _executeTask(taskDoc, provider);
@@ -208,5 +253,66 @@ void main() {}
     } catch (e) {
       logger.warn('Failed to perform git operations: $e');
     }
+  }
+
+  /// Displays tasks for manual execution without generating code.
+  ///
+  /// In manual mode, Spectra shows the task breakdown but leaves
+  /// implementation to the user.
+  Future<void> _displayTasksForManualExecution(
+    List<XmlDocument> taskDocs,
+  ) async {
+    logger.info(
+      '📋 Manual Execution Mode - ${taskDocs.length} tasks to implement:',
+    );
+    logger.detail('You will implement these tasks manually.\n');
+
+    for (var i = 0; i < taskDocs.length; i++) {
+      final taskElement = taskDocs[i].rootElement;
+      final id = taskElement.getAttribute('id');
+      final name = taskElement.findElements('n').first.innerText;
+      final files = taskElement
+          .findElements('files')
+          .first
+          .findElements('file');
+      final objective = taskElement.findElements('objective').first.innerText;
+      final verification = taskElement
+          .findElements('verification')
+          .first
+          .innerText;
+      final acceptance = taskElement.findElements('acceptance').first.innerText;
+
+      final filePaths = files.map((f) => f.innerText).toList();
+
+      logger.info('─' * 60);
+      logger.info('Task ${i + 1}/${taskDocs.length}: #$id');
+      logger.success('Name: $name');
+      logger.detail('Objective: $objective');
+      logger.detail('Files: ${filePaths.join(', ')}');
+      logger.detail('Verification: $verification');
+      logger.detail('Acceptance: $acceptance');
+      logger.info('');
+
+      // Show file context if files exist
+      for (final path in filePaths) {
+        final file = File(path);
+        if (file.existsSync()) {
+          logger.detail('  Existing: $path (${file.lengthSync()} bytes)');
+        } else {
+          logger.detail('  Create: $path (new file)');
+        }
+      }
+
+      logger.info('');
+    }
+
+    logger.info('─' * 60);
+    logger.success(
+      '\n✅ Task list displayed. Implement manually and commit when ready.',
+    );
+    logger.detail('Tip: Mark tasks complete in PLAN.md as you finish them.');
+    logger.detail(
+      'Tip: Run `spectra execute --auto` when ready for AI to take over.',
+    );
   }
 }

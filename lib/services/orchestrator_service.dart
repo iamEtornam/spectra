@@ -10,6 +10,7 @@ import '../agents/witness_agent.dart';
 import '../agents/worker_agent.dart';
 import '../models/agent.dart';
 import '../models/convoy.dart';
+import '../models/llm_usage_type.dart';
 import '../models/task.dart';
 import 'llm_service.dart';
 
@@ -75,20 +76,35 @@ class OrchestratorService {
       return;
     }
 
-    final provider = await _llmService.getPreferredProvider();
-    if (provider == null) {
-      logger.err('No LLM provider configured. Cannot start orchestrator.');
+    // Use planning provider for Mayor and Witness (coordination, monitoring)
+    final planningProvider = await _llmService.getProviderForUsage(
+      LLMUsageType.planning,
+    );
+    if (planningProvider == null) {
+      logger.err('No planning provider configured. Cannot start orchestrator.');
+      return;
+    }
+
+    // Use coding provider for Workers (actual code generation)
+    final codingProvider = await _llmService.getProviderForUsage(
+      LLMUsageType.coding,
+    );
+    if (codingProvider == null) {
+      logger.err('No coding provider configured. Cannot start orchestrator.');
       return;
     }
 
     _isRunning = true;
     logger.info('Spectra Multi-Agent Orchestrator starting...');
+    logger.detail(
+      'Planning: ${planningProvider.name} | Coding: ${codingProvider.name}',
+    );
 
     // Initialize Agents
     _agents.add(
       MayorAgent(
         id: 'Mayor-1',
-        provider: provider,
+        provider: planningProvider, // Strategic coordination
         logger: logger,
         orchestrator: this,
       ),
@@ -97,7 +113,7 @@ class OrchestratorService {
     _agents.add(
       WitnessAgent(
         id: 'Witness-1',
-        provider: provider,
+        provider: planningProvider, // Monitoring and analysis
         logger: logger,
         orchestrator: this,
       ),
@@ -106,7 +122,7 @@ class OrchestratorService {
     for (var i = 1; i <= workerCount; i++) {
       final worker = WorkerAgent(
         id: 'Worker-$i',
-        provider: provider,
+        provider: codingProvider, // Tactical code generation
         logger: logger,
         onTaskCompleted: markTaskCompleted,
       );

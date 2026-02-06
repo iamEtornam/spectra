@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.5] - 2026-02-06
 
 ### Added
+- **Execution Modes**: Three modes for different workflows.
+  - `ExecutionMode.automatic`: AI plans and implements code (default).
+  - `ExecutionMode.manual`: AI plans, user implements code manually.
+  - `ExecutionMode.interactive`: AI generates, user reviews and approves.
+  - New `--manual` and `--auto` flags for `execute` and `start` commands.
+  - `executionMode` field in `SpectraConfig` for persistent preference.
+  - Allows using Spectra purely as a planning tool without code generation.
+  - See `doc/execution-modes.md` for comprehensive guide.
+- **LLM Usage Type Separation**: Separate provider configuration for planning vs coding tasks.
+  - New `LLMUsageType` enum with `planning` and `coding` variants.
+  - `planningProvider` and `codingProvider` fields in `SpectraConfig`.
+  - `getProviderForUsage(LLMUsageType)` method in `LLMService`.
+  - Planning tasks: `plan`, `map`, Mayor/Witness agents (strategic analysis).
+  - Coding tasks: `execute`, `start`, Worker agents (code generation).
+  - Allows cost optimization (e.g., Claude for planning, Gemini Flash for coding).
+  - Backward compatible with existing `preferredProvider` configuration.
+  - See `doc/llm-usage-types.md` for comprehensive guide and recommendations.
 - **Encrypted Credential Storage**: API keys are now encrypted using machine-specific encryption.
   - New `SecureStorageService` with PBKDF2 key derivation (10,000 iterations).
   - Keys stored in `~/.spectra/.secure/` with filesystem-based protection.
@@ -38,6 +55,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CI/CD integration guidelines.
 
 ### Changed
+- **ConfigCommand**: Enhanced to configure separate planning and coding providers.
+  - New interactive prompts for planning provider selection.
+  - New interactive prompts for coding provider selection.
+  - Clear descriptions and recommendations for each usage type.
+  - Shows selected providers on success.
+- **Commands Updated for Usage Types**:
+  - `PlanCommand` now uses planning provider (strategic task breakdown).
+  - `MapCommand` now uses planning provider (architecture analysis).
+  - `ExecuteCommand` now uses coding provider (code generation).
+  - `OrchestratorService` uses both: planning for Mayor/Witness, coding for Workers.
 - **ConfigService**: Refactored to use encrypted storage instead of plain YAML.
   - All API keys now stored securely in encrypted format.
   - Legacy `config.yaml` automatically migrated on first load.

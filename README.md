@@ -6,11 +6,16 @@
 
 AI-driven development often leads to technical debt, inconsistent patterns, and "AI hallucinations" that break your build.
 
-**Spectra fixes that.** It's the multi-agent context engineering layer that makes LLMs (Gemini, Claude, OpenAI, Grok, DeepSeek) reliable for real software engineering. Describe your idea, map your existing codebase, and let Spectra orchestrate the execution with precision.
+**Spectra fixes that.** It's the multi-agent context engineering layer that makes LLMs (Gemini, Claude, OpenAI, Grok, DeepSeek) reliable for real software engineering.
+
+**Use Spectra your way:**
+- 🤖 **Automatic**: AI plans AND implements code
+- 👤 **Manual**: AI plans tasks, YOU implement (NEW in v0.1.5)
+- 🤝 **Interactive**: AI suggests, you review
 
 THIS is how you build systems that actually last.
 
-_Warning: Not for developers who enjoy manual boilerplate and inconsistent code quality._
+_Perfect for developers who want smart planning without losing control of their code._
 
 ---
 
@@ -47,7 +52,13 @@ Spectra allows me to focus on high-level architecture while it handles the imple
 ```bash
 spectra config
 ```
-Spectra will prompt you for your API keys for Google Gemini, OpenAI, Anthropic Claude, xAI Grok, and DeepSeek. These are stored **securely encrypted** in `~/.spectra/.secure/` using machine-specific encryption. Legacy YAML configs are automatically migrated to encrypted storage.
+Spectra will prompt you for your API keys for Google Gemini, OpenAI, Anthropic Claude, xAI Grok, and DeepSeek. These are stored **securely encrypted** in `~/.spectra/.secure/` using machine-specific encryption.
+
+**NEW**: You can now configure separate providers for:
+- **Planning Provider**: Strategic tasks (plan, map, architecture analysis)
+- **Coding Provider**: Tactical tasks (execute, worker agents, code generation)
+
+**Recommended**: Claude for planning, Gemini Flash for coding. See [LLM Usage Types](doc/llm-usage-types.md) for details.
 
 ### 2. New Projects (Greenfield)
 ```bash
@@ -73,6 +84,184 @@ The Planner breaks your roadmap into 2–5 atomic tasks. While `spectra execute`
 - **Witness Agent**: Monitors health and detects stuck workers.
 
 **Monitor in real-time**: While `spectra start` is running, you can use `spectra progress` in another terminal to see the live status of all active agents and their assigned tasks. For a visual experience, run `spectra dashboard` to launch a web-based monitoring UI.
+
+---
+
+## Use Spectra Your Way
+
+Spectra adapts to your workflow with **flexible execution modes**:
+
+### 🤖 Automatic Mode (Default)
+AI plans AND implements code automatically. Best for rapid prototyping.
+```bash
+spectra plan "Features" → spectra execute
+# AI does everything
+```
+
+### 👤 Manual Mode (Planning Only)
+**AI plans, YOU code.** Use Spectra as a planning tool only.
+```bash
+spectra plan "Features" → spectra execute --manual
+# AI creates task breakdown
+# You implement in your IDE
+```
+
+### 🤝 Interactive Mode
+AI suggests code, you review and approve. Best for production.
+```bash
+spectra execute  # Review each file before applying
+```
+
+**Choose what works for you.** See [Execution Modes](doc/execution-modes.md) for details.
+
+---
+
+## LLM Usage Optimization
+
+Spectra intelligently separates LLM usage into **Planning** and **Coding** tasks for maximum efficiency:
+
+### Why Separate Planning from Coding?
+
+**Different tasks need different strengths:**
+- **Strategic Planning** → Strong reasoning, architectural thinking (Claude, GPT-5)
+- **Tactical Coding** → Fast generation, syntax accuracy (Gemini Flash, DeepSeek)
+
+**Cost Optimization:**
+- Planning happens **once per phase** → Use powerful models ($0.50)
+- Coding happens **many times** → Use fast models ($2.00 for 50 tasks)
+- **Result**: $2.50 total vs $25 with expensive models everywhere (90% savings!)
+
+### Architecture Overview
+
+```
+┌─────────────────────────────┐  ┌─────────────────────────────┐
+│   🎯 PLANNING (Strategic)   │  │   💻 CODING (Tactical)      │
+├─────────────────────────────┤  ├─────────────────────────────┤
+│                             │  │                             │
+│  Commands:                  │  │  Commands:                  │
+│  • spectra plan             │  │  • spectra execute          │
+│  • spectra map              │  │  • spectra start (workers)  │
+│                             │  │                             │
+│  Agents:                    │  │  Agents:                    │
+│  • Mayor (coordination)     │  │  • Workers (implementation) │
+│  • Witness (monitoring)     │  │                             │
+│                             │  │                             │
+│  Recommended:               │  │  Recommended:               │
+│  • Claude (reasoning)       │  │  • Gemini Flash (speed)     │
+│  • GPT-5 (balanced)         │  │  • DeepSeek (code-focused)  │
+│                             │  │                             │
+│  Frequency: LOW             │  │  Frequency: HIGH            │
+│  Cost/Use: HIGH             │  │  Cost/Use: LOW              │
+└─────────────────────────────┘  └─────────────────────────────┘
+```
+
+### Provider Comparison
+
+**For Planning (Strategic Tasks)**
+
+| Provider | Reasoning | Speed | Cost | Recommendation |
+|----------|-----------|-------|------|----------------|
+| **Claude** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | 💰💰💰 | **Best** |
+| **GPT-5** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 💰💰💰 | Great |
+| **Gemini Pro** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 💰💰 | Good |
+
+**For Coding (Tactical Tasks)**
+
+| Provider | Code Quality | Speed | Cost | Recommendation |
+|----------|--------------|-------|------|----------------|
+| **Gemini Flash** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 💰 | **Best** |
+| **DeepSeek** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 💰 | Great |
+| **GPT-5 Mini** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 💰💰 | Good |
+
+### Recommended Configurations
+
+**Balanced (Most Projects)**
+```
+Planning: Claude (best reasoning)
+Coding: Gemini Flash (fastest, cheapest)
+Mode: Automatic
+```
+
+**Cost-Optimized**
+```
+Planning: Gemini Flash
+Coding: DeepSeek
+Mode: Automatic
+Savings: Up to 95%
+```
+
+**Speed-First**
+```
+Planning: Gemini Pro
+Coding: Gemini Flash
+Mode: Automatic
+Speedup: 3-4x faster
+```
+
+**Planning-Only (Manual)**
+```
+Planning: Claude
+Mode: Manual
+Cost: Just planning (~$0.50 per phase)
+You: Implement code yourself
+```
+
+### Cost & Speed Examples
+
+**20-Task Project**
+| Configuration | Planning | Coding | Total | Time |
+|---------------|----------|--------|-------|------|
+| Claude Only | $0.50 | $20.00 | $20.50 | 64s |
+| Claude + Gemini | $0.50 | $1.50 | $2.00 | 19s |
+| Manual Mode | $0.50 | $0.00 | $0.50 | You code |
+
+**Savings with dual providers**: 90% cost, 70% time!
+
+### Usage Examples
+
+**Example 1: Cost-Optimized Automation**
+```bash
+$ spectra config
+Planning Provider: Claude
+Coding Provider: Gemini Flash
+Mode: Automatic
+
+$ spectra plan "E-commerce Platform"
+✅ 50 tasks planned with Claude ($0.50)
+
+$ spectra start --workers 5
+✅ All 50 tasks completed with Gemini ($3.00)
+
+Total: $3.50 (vs $25 with Claude only)
+Savings: 86%
+```
+
+**Example 2: Planning-Only Workflow**
+```bash
+$ spectra config
+Planning Provider: Claude
+Mode: Manual
+
+$ spectra plan "Full Stack App"
+✅ AI creates 20 task breakdown
+
+$ spectra execute --manual
+📋 20 tasks displayed with details
+# You implement in your IDE
+
+Total: $0.50 for planning only
+```
+
+**Example 3: Mixed Workflow**
+```bash
+# AI handles boilerplate
+$ spectra plan "Models & Config"
+$ spectra execute  # AI generates
+
+# You handle business logic
+$ spectra plan "Payment Processing"
+$ spectra execute --manual  # You implement
+```
 
 ---
 
@@ -114,6 +303,22 @@ When `STATE.md` grows too large, Spectra automatically archives older decisions 
 Creative engineers who want to build complex systems without being bogged down by manual implementation details.
 
 If you want to define the *what* and have a system you trust handle the *how*—while maintaining full architectural control—Spectra is for you.
+
+---
+
+## Learn More
+
+Want deeper insights? Check out our comprehensive guides:
+
+**Core Features:**
+- [Execution Modes](doc/execution-modes.md) - Automatic, Manual, Interactive workflows
+- [LLM Usage Types](doc/llm-usage-types.md) - Provider optimization strategies
+- [Security Features](doc/security.md) - Encryption implementation details
+
+**Technical Deep Dives:**
+- [Architecture](doc/architecture-llm-separation.md) - LLM separation design
+- [Testing Guide](doc/testing.md) - Running and writing tests
+- [Migration Guide](doc/migration-guide-v0.1.5.md) - Upgrading from v0.1.4
 
 ---
 

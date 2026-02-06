@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:spectra_cli/models/llm_usage_type.dart';
 import 'package:spectra_cli/models/task.dart';
 import 'package:spectra_cli/services/llm_service.dart';
 import 'package:xml/xml.dart';
@@ -39,15 +40,20 @@ class PlanCommand extends SpectraCommand {
     final projectContext = projectFile.readAsStringSync();
     final roadmapContext = roadmapFile.readAsStringSync();
 
-    final provider = await _llmService.getPreferredProvider();
+    // Use planning provider for strategic task breakdown
+    final provider = await _llmService.getProviderForUsage(
+      LLMUsageType.planning,
+    );
     if (provider == null) {
       logger.err(
-        'No LLM provider configured. Run `spectra config` to set up a provider.',
+        'No planning provider configured. Run `spectra config` to set up providers.',
       );
       return;
     }
 
-    logger.info('Planning tasks for $phase using ${provider.name}...');
+    logger.info(
+      'Planning tasks for $phase using ${provider.name} (Strategic Planning)...',
+    );
 
     final prompt =
         '''

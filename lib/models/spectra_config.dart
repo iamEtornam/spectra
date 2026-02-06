@@ -11,7 +11,25 @@ class SpectraConfig {
   final String? grokModel;
   final String? deepseekModel;
 
+  /// Legacy: Preferred provider when no specific usage type is specified.
+  /// For backward compatibility only.
   final String? preferredProvider;
+
+  /// Provider to use for planning, documentation, and analysis tasks.
+  /// Examples: breaking roadmaps into tasks, analyzing codebases.
+  /// Recommended: Claude (reasoning), GPT-5 (balanced), Gemini Pro (fast).
+  final String? planningProvider;
+
+  /// Provider to use for code generation and implementation tasks.
+  /// Examples: executing tasks, writing files, worker agents.
+  /// Recommended: Gemini Flash (fastest), DeepSeek (code-focused), GPT-5 Mini.
+  final String? codingProvider;
+
+  /// Execution mode: how tasks should be executed.
+  /// - 'automatic': AI generates and writes code (default)
+  /// - 'manual': AI plans, user implements manually
+  /// - 'interactive': AI generates, user reviews and approves
+  final String? executionMode;
 
   SpectraConfig({
     this.geminiKey,
@@ -25,6 +43,9 @@ class SpectraConfig {
     this.grokModel,
     this.deepseekModel,
     this.preferredProvider,
+    this.planningProvider,
+    this.codingProvider,
+    this.executionMode,
   });
 
   factory SpectraConfig.fromYaml(Map<dynamic, dynamic> yaml) {
@@ -40,6 +61,9 @@ class SpectraConfig {
       grokModel: yaml['grok_model'] as String?,
       deepseekModel: yaml['deepseek_model'] as String?,
       preferredProvider: yaml['preferred_provider'] as String?,
+      planningProvider: yaml['planning_provider'] as String?,
+      codingProvider: yaml['coding_provider'] as String?,
+      executionMode: yaml['execution_mode'] as String?,
     );
   }
 
@@ -56,6 +80,9 @@ class SpectraConfig {
       'grok_model': grokModel,
       'deepseek_model': deepseekModel,
       'preferred_provider': preferredProvider,
+      'planning_provider': planningProvider,
+      'coding_provider': codingProvider,
+      'execution_mode': executionMode,
     };
   }
 
@@ -73,6 +100,9 @@ class SpectraConfig {
       grokModel: map['grok_model'],
       deepseekModel: map['deepseek_model'],
       preferredProvider: map['preferred_provider'],
+      planningProvider: map['planning_provider'],
+      codingProvider: map['coding_provider'],
+      executionMode: map['execution_mode'],
     );
   }
 
@@ -92,6 +122,9 @@ class SpectraConfig {
     if (preferredProvider != null) {
       map['preferred_provider'] = preferredProvider!;
     }
+    if (planningProvider != null) map['planning_provider'] = planningProvider!;
+    if (codingProvider != null) map['coding_provider'] = codingProvider!;
+    if (executionMode != null) map['execution_mode'] = executionMode!;
     return map;
   }
 
@@ -107,6 +140,9 @@ class SpectraConfig {
     String? grokModel,
     String? deepseekModel,
     String? preferredProvider,
+    String? planningProvider,
+    String? codingProvider,
+    String? executionMode,
   }) {
     return SpectraConfig(
       geminiKey: geminiKey ?? this.geminiKey,
@@ -120,6 +156,9 @@ class SpectraConfig {
       grokModel: grokModel ?? this.grokModel,
       deepseekModel: deepseekModel ?? this.deepseekModel,
       preferredProvider: preferredProvider ?? this.preferredProvider,
+      planningProvider: planningProvider ?? this.planningProvider,
+      codingProvider: codingProvider ?? this.codingProvider,
+      executionMode: executionMode ?? this.executionMode,
     );
   }
 }

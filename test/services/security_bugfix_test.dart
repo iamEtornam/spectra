@@ -49,31 +49,34 @@ void main() {
       }
     });
 
-    test('encrypting same data twice should produce different ciphertext',
-        () async {
-      final testData = {'api_key': 'test-secret-key-12345'};
+    test(
+      'encrypting same data twice should produce different ciphertext',
+      () async {
+        final testData = {'api_key': 'test-secret-key-12345'};
 
-      // Encrypt the same data twice
-      await secureStorage.store(testData);
-      final home =
-          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE']!;
-      final credFile = File('$home/.spectra/.secure/creds.enc');
-      final encrypted1 = await credFile.readAsBytes();
+        // Encrypt the same data twice
+        await secureStorage.store(testData);
+        final home =
+            Platform.environment['HOME'] ??
+            Platform.environment['USERPROFILE']!;
+        final credFile = File('$home/.spectra/.secure/creds.enc');
+        final encrypted1 = await credFile.readAsBytes();
 
-      await secureStorage.clear();
+        await secureStorage.clear();
 
-      await secureStorage.store(testData);
-      final encrypted2 = await credFile.readAsBytes();
+        await secureStorage.store(testData);
+        final encrypted2 = await credFile.readAsBytes();
 
-      // Ciphertexts should be different due to random IV
-      expect(encrypted1, isNot(equals(encrypted2)));
+        // Ciphertexts should be different due to random IV
+        expect(encrypted1, isNot(equals(encrypted2)));
 
-      // But decrypted data should be the same
-      await secureStorage.clear();
-      await secureStorage.store(testData);
-      final decrypted = await secureStorage.retrieve();
-      expect(decrypted, equals(testData));
-    });
+        // But decrypted data should be the same
+        await secureStorage.clear();
+        await secureStorage.store(testData);
+        final decrypted = await secureStorage.retrieve();
+        expect(decrypted, equals(testData));
+      },
+    );
 
     test('should encrypt with random IV each time', () async {
       final testData = {'key': 'value'};

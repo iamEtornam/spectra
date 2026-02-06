@@ -49,6 +49,10 @@ class SpectraConfig {
   });
 
   factory SpectraConfig.fromYaml(Map<dynamic, dynamic> yaml) {
+    // Helper to normalize provider names to lowercase (for v0.1.4 migration)
+    String? normalizeProvider(String? provider) =>
+        provider?.toLowerCase().trim();
+
     return SpectraConfig(
       geminiKey: yaml['gemini_key'] as String?,
       openaiKey: yaml['openai_key'] as String?,
@@ -60,9 +64,11 @@ class SpectraConfig {
       claudeModel: yaml['claude_model'] as String?,
       grokModel: yaml['grok_model'] as String?,
       deepseekModel: yaml['deepseek_model'] as String?,
-      preferredProvider: yaml['preferred_provider'] as String?,
-      planningProvider: yaml['planning_provider'] as String?,
-      codingProvider: yaml['coding_provider'] as String?,
+      preferredProvider: normalizeProvider(
+        yaml['preferred_provider'] as String?,
+      ),
+      planningProvider: normalizeProvider(yaml['planning_provider'] as String?),
+      codingProvider: normalizeProvider(yaml['coding_provider'] as String?),
       executionMode: yaml['execution_mode'] as String?,
     );
   }
@@ -88,6 +94,10 @@ class SpectraConfig {
 
   /// Creates a SpectraConfig from a map (used for secure storage).
   factory SpectraConfig.fromMap(Map<String, String> map) {
+    // Helper to normalize provider names to lowercase (for v0.1.4 migration)
+    String? normalizeProvider(String? provider) =>
+        provider?.toLowerCase().trim();
+
     return SpectraConfig(
       geminiKey: map['gemini_key'],
       openaiKey: map['openai_key'],
@@ -99,9 +109,9 @@ class SpectraConfig {
       claudeModel: map['claude_model'],
       grokModel: map['grok_model'],
       deepseekModel: map['deepseek_model'],
-      preferredProvider: map['preferred_provider'],
-      planningProvider: map['planning_provider'],
-      codingProvider: map['coding_provider'],
+      preferredProvider: normalizeProvider(map['preferred_provider']),
+      planningProvider: normalizeProvider(map['planning_provider']),
+      codingProvider: normalizeProvider(map['coding_provider']),
       executionMode: map['execution_mode'],
     );
   }

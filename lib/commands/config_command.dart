@@ -121,16 +121,21 @@ class ConfigCommand extends SpectraCommand {
     final providers = ['gemini', 'openai', 'claude', 'grok', 'deepseek'];
     final providerLabels = ['Gemini', 'OpenAI', 'Claude', 'Grok', 'DeepSeek'];
 
+    // Helper function for case-insensitive provider lookup
+    int findProviderIndex(String? providerName) {
+      if (providerName == null) return 0;
+      final index = providers.indexOf(providerName.toLowerCase());
+      return index != -1 ? index : 0;
+    }
+
     // Planning Provider
     final planningProviderIndex = Select(
       prompt:
           'Planning Provider (roadmap analysis, task breakdown) [Recommended: Claude]',
       options: providerLabels,
       initialIndex: currentConfig.planningProvider != null
-          ? providers.indexOf(currentConfig.planningProvider!)
-          : (currentConfig.preferredProvider != null
-                ? providers.indexOf(currentConfig.preferredProvider!)
-                : 0),
+          ? findProviderIndex(currentConfig.planningProvider)
+          : findProviderIndex(currentConfig.preferredProvider),
     ).interact();
 
     // Coding Provider
@@ -139,19 +144,15 @@ class ConfigCommand extends SpectraCommand {
           'Coding Provider (code generation, implementation) [Recommended: Gemini Flash]',
       options: providerLabels,
       initialIndex: currentConfig.codingProvider != null
-          ? providers.indexOf(currentConfig.codingProvider!)
-          : (currentConfig.preferredProvider != null
-                ? providers.indexOf(currentConfig.preferredProvider!)
-                : 0),
+          ? findProviderIndex(currentConfig.codingProvider)
+          : findProviderIndex(currentConfig.preferredProvider),
     ).interact();
 
     // Legacy Preferred Provider (for backward compatibility)
     final preferredProviderIndex = Select(
       prompt: 'Default Provider (legacy fallback)',
       options: providerLabels,
-      initialIndex: currentConfig.preferredProvider != null
-          ? providers.indexOf(currentConfig.preferredProvider!)
-          : 0,
+      initialIndex: findProviderIndex(currentConfig.preferredProvider),
     ).interact();
 
     // Execution Mode

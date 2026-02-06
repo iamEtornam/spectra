@@ -117,10 +117,13 @@ class SecureStorageService {
     final iv = List.generate(16, (_) => random.nextInt(256));
 
     // Create keystream using key + IV for non-deterministic encryption
-    final keySeed = key.fold<int>(0, (a, b) => a + b) +
-        iv.fold<int>(0, (a, b) => a + b);
+    final keySeed =
+        key.fold<int>(0, (a, b) => a + b) + iv.fold<int>(0, (a, b) => a + b);
     final streamRandom = Random(keySeed);
-    final keyStream = List.generate(data.length, (_) => streamRandom.nextInt(256));
+    final keyStream = List.generate(
+      data.length,
+      (_) => streamRandom.nextInt(256),
+    );
 
     // Encrypt: data XOR key XOR keystream
     final encrypted = List.generate(
@@ -145,10 +148,13 @@ class SecureStorageService {
     final encrypted = data.sublist(16);
 
     // Recreate keystream using key + IV
-    final keySeed = key.fold<int>(0, (a, b) => a + b) +
-        iv.fold<int>(0, (a, b) => a + b);
+    final keySeed =
+        key.fold<int>(0, (a, b) => a + b) + iv.fold<int>(0, (a, b) => a + b);
     final streamRandom = Random(keySeed);
-    final keyStream = List.generate(encrypted.length, (_) => streamRandom.nextInt(256));
+    final keyStream = List.generate(
+      encrypted.length,
+      (_) => streamRandom.nextInt(256),
+    );
 
     // Decrypt: encrypted XOR key XOR keystream
     return List.generate(

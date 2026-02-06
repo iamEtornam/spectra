@@ -96,9 +96,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resistant to pattern analysis and ciphertext-only attacks.
   - Uses `Random.secure()` for cryptographically secure random generation.
   - Note: Users may need to re-enter API keys once after upgrade.
-- Fixed null home directory handling in `ConfigService` and `SecureStorageService`.
+- Fixed null home directory handling in `ConfigService`, `SecureStorageService`, and `LLMService`.
   - Now throws descriptive `StateError` if HOME/USERPROFILE not set.
   - Prevents creation of invalid `"null/.spectra"` paths.
+  - `LLMService` now validates home directory when caching is enabled.
+- Fixed case-sensitive provider name lookup in `ConfigCommand`.
+  - Legacy v0.1.4 configs with capitalized provider names (e.g., "Gemini") now work correctly.
+  - Provider names automatically normalized to lowercase during deserialization.
+  - Prevents `indexOf()` returning -1 and causing incorrect UI selections.
+  - Handles whitespace trimming for robustness.
 
 ## [0.1.4] - 2026-01-08
 

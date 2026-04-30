@@ -8,7 +8,8 @@
     ["Getting Started", "/getting-started"],
     ["Core Concepts", "/core-concepts"],
     ["CLI Commands", "/commands"],
-    ["Multi-Agent Orchestrator", "/orchestrator"]
+    ["Multi-Agent Orchestrator", "/orchestrator"],
+    ["Symphony Adaptation Plan", "/symphony-adaptation-plan"]
   ],
   "navigation": [
     { "title": "GitHub", "url": "https://github.com/iamEtornam/spectra" }

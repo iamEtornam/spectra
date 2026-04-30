@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-04-30
+
+### Added — Symphony work-orchestration model
+
+- **`WORKFLOW.md` policy contract**: repo-owned YAML front matter + Markdown
+  prompt body parsed by `WorkflowLoader` into a typed `WorkflowConfig`. Hot
+  reload provided by `WorkflowWatcher` (built on `package:watcher`) keeps the
+  scheduler in sync without restarts and preserves the last known good config
+  on parse failures.
+- **Pluggable `IssueTrackerClient` adapters** under `lib/features/tracker/`:
+  - `LinearTrackerClient` — Symphony-spec compatible Linear GraphQL adapter
+    with pagination, 30s timeout, and categorized error mapping
+    (`apiRequest`, `apiStatus`, `graphqlErrors`, `unknownPayload`,
+    `missingEndCursor`).
+  - `LocalPlanTrackerClient` — adapts existing `.spectra/PLAN.md` tasks (with
+    optional `.spectra/ROADMAP.md` checkbox state) into normalized `Issue`s,
+    so the existing `spectra plan` -> `spectra start` flow keeps working
+    without an external tracker.
+  - `TrackerFactory` resolves the adapter from `WorkflowConfig.tracker.kind`.
+- **Per-issue git-worktree workspaces** under `lib/features/workspaces/`:
+  `WorkspaceManager` sanitizes issue identifiers, enforces root containment,
+  creates workspaces with `git worktree add -B spectra/<key>`, and runs
+  `after_create` / `before_run` / `after_run` / `before_remove` hooks via
+  `bash -lc <script>` with the configured timeout. Falls back to plain
+  directories when the project is not a git repo.
+- **`AgentRunner` abstraction** under `lib/features/runner/`. Default
+  `LlmAgentRunner` reuses Spectra's existing `LLMProvider` stack and parses
+  `<file_content>` blocks into the per-issue worktree. A strict `PromptRenderer`
+  supports `{{ issue.* }}`, `{{ attempt }}`, `{% if %}`, `{% for %}`, and fails
+  on unknown variables/filters per spec.
+- **Single-authority `Scheduler`** under `lib/features/orchestration/`. Owns
+  `running`, `claimed`, `retryAttempts`, `completed`, and `CodexTotals` maps;
+  reconciles tracker state and detects stalls before each tick; exponential
+  failure backoff capped by `agent.max_retry_backoff_ms` and 1s continuation
+  retries on success.
+- **Run-first observability** under `lib/features/observability/`:
+  `RuntimeSnapshot` is mirrored to `.spectra/RUNTIME.json` and exposed at
+  `GET /api/v1/state`, `GET /api/v1/issue/<identifier>`, and
+  `POST /api/v1/refresh`. Added `spectra progress --runs` to print the same
+  snapshot in the terminal.
+- **Proof-of-work artifacts**: every completed run writes a `proof.md` under
+  `.spectra/runs/<run_id>/` with changed files, hook outcomes, retries, and
+  recommendation.
+- **CLI updates**: `spectra new` now scaffolds a default `WORKFLOW.md`;
+  `spectra start` accepts `--workflow <path>` and `--legacy` and auto-routes
+  to the new scheduler when `WORKFLOW.md` is present.
+
+### Changed
+
+- `OrchestratorService` now dual-writes `AGENTS.json` (legacy, kept for one
+  release) and the new `RUNTIME.json` snapshot so the run-first dashboard
+  works whether you run the new scheduler or the legacy convoy mode.
+- Dashboard rewritten as a run-first surface; legacy `AGENTS.json` endpoint
+  carries a `deprecation` field.
+
+### Added — Dependencies
+
+- `watcher: ^1.2.1` for `WORKFLOW.md` hot reload.
+
+### Notes
+
+- Backward compatible: `OrchestratorService`, `Convoy`, `SpectraTask`,
+  `MayorAgent`, `WitnessAgent`, and `WorkerAgent` remain importable.
+  `spectra start` falls back to legacy convoy mode when `WORKFLOW.md` is
+  missing or `--legacy` is passed.
+
 ## [0.1.5] - 2026-02-06
 
 ### Added

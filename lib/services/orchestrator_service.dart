@@ -268,8 +268,17 @@ class OrchestratorService {
   }
 
   /// Persists current agent status to disk for monitoring.
+  ///
+  /// Writes both the legacy `.spectra/AGENTS.json` (kept for one release for
+  /// backward compatibility with older dashboards) and the new
+  /// `.spectra/RUNTIME.json` snapshot consumed by the run-first dashboard.
   void _persistAgentStatus() {
     try {
+      final spectraDir = Directory('.spectra');
+      if (!spectraDir.existsSync()) {
+        spectraDir.createSync(recursive: true);
+      }
+
       final statusFile = File('.spectra/AGENTS.json');
       final data = _agents.map((a) {
         final state = a.state.toJson();
@@ -277,8 +286,57 @@ class OrchestratorService {
         return state;
       }).toList();
       statusFile.writeAsStringSync(jsonEncode(data));
+
+      final runtimeFile = File('.spectra/RUNTIME.json');
+      final runtime = <String, dynamic>{
+        'generated_at': DateTime.now().toIso8601String(),
+        'mode': 'legacy_orchestrator',
+        'counts': <String, int>{
+          'running': _agents
+              .where((a) => a.status == AgentStatus.working)
+              .length,
+          'retrying': 0,
+          'claimed': _agents.where((a) => a.currentTaskId != null).length,
+          'completed': _taskHistory.values.fold<int>(
+            0,
+            (acc, list) => acc + list.length,
+          ),
+        },
+        'running': _agents
+            .where((a) => a.currentTaskId != null)
+            .map(
+              (a) => <String, dynamic>{
+                'issue_id': a.currentTaskId,
+                'issue_identifier': 'TASK-${a.currentTaskId}',
+                'state': a.status.name,
+                'workspace_path': '',
+                'started_at': a.lastActivity.toIso8601String(),
+                'attempt': <String, dynamic>{
+                  'phase': a.status.name,
+                  'attempt': 1,
+                },
+              },
+            )
+            .toList(),
+        'retrying': const <dynamic>[],
+        'claimed': _agents
+            .where((a) => a.currentTaskId != null)
+            .map((a) => a.currentTaskId)
+            .toList(),
+        'completed': _taskHistory.values.expand((e) => e).toList(),
+        'codex_totals': const <String, dynamic>{
+          'input_tokens': 0,
+          'output_tokens': 0,
+          'total_tokens': 0,
+          'seconds_running': 0,
+        },
+        'rate_limits': null,
+        'recent_events': const <dynamic>[],
+        'validation_errors': const <dynamic>[],
+      };
+      runtimeFile.writeAsStringSync(jsonEncode(runtime));
     } catch (e) {
-      // Ignore persistence errors
+      // Ignore persistence errors.
     }
   }
 
@@ -289,6 +347,10 @@ class OrchestratorService {
     final statusFile = File('.spectra/AGENTS.json');
     if (statusFile.existsSync()) {
       statusFile.deleteSync();
+    }
+    final runtimeFile = File('.spectra/RUNTIME.json');
+    if (runtimeFile.existsSync()) {
+      runtimeFile.deleteSync();
     }
 
     logger.info('Orchestrator stopped.');

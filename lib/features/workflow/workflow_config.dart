@@ -66,13 +66,16 @@ class WorkflowConfig {
     );
   }
 
+  /// Tracker kinds supported by the built-in factory.
+  static const supportedTrackerKinds = <String>{'linear', 'local_plan'};
+
   /// Returns dispatch-blocking validation errors.
   List<String> validateForDispatch() {
     final errors = <String>[];
 
     if (tracker.kind == null || tracker.kind!.isEmpty) {
       errors.add('tracker.kind is required for dispatch.');
-    } else if (tracker.kind != 'linear') {
+    } else if (!supportedTrackerKinds.contains(tracker.kind)) {
       errors.add('Unsupported tracker.kind: ${tracker.kind}.');
     }
 
@@ -279,12 +282,24 @@ class AgentWorkflowConfig {
   /// Optional per-tracker-state concurrency overrides.
   final Map<String, int> maxConcurrentAgentsByState;
 
+  /// Identifier for the agent runner implementation.
+  ///
+  /// Defaults to `llm`, which uses Spectra's existing LLM providers via
+  /// `LlmAgentRunner`. `codex` is reserved for a future Codex app-server
+  /// runner.
+  final String runner;
+
+  /// LLM-runner-specific overrides.
+  final LlmRunnerWorkflowConfig llm;
+
   /// Creates agent workflow config.
   const AgentWorkflowConfig({
     required this.maxConcurrentAgents,
     required this.maxTurns,
     required this.maxRetryBackoff,
     required this.maxConcurrentAgentsByState,
+    required this.runner,
+    required this.llm,
   });
 
   /// Builds agent config from a map.
@@ -299,6 +314,41 @@ class AgentWorkflowConfig {
         map,
         'max_concurrent_agents_by_state',
       ),
+      runner: _stringValue(map, 'runner') ?? 'llm',
+      llm: LlmRunnerWorkflowConfig.fromMap(_mapValue(map, 'llm')),
+    );
+  }
+}
+
+/// LLM runner overrides set under `agent.llm`.
+class LlmRunnerWorkflowConfig {
+  /// Optional planning provider override.
+  final String? planningProvider;
+
+  /// Optional coding provider override.
+  final String? codingProvider;
+
+  /// Per-turn timeout for LLM calls.
+  final Duration timeout;
+
+  /// Maximum response size before the runner aborts the turn.
+  final int maxResponseBytes;
+
+  /// Creates an LLM runner config view.
+  const LlmRunnerWorkflowConfig({
+    required this.planningProvider,
+    required this.codingProvider,
+    required this.timeout,
+    required this.maxResponseBytes,
+  });
+
+  /// Builds an LLM runner config from a map.
+  factory LlmRunnerWorkflowConfig.fromMap(Map<String, dynamic> map) {
+    return LlmRunnerWorkflowConfig(
+      planningProvider: _stringValue(map, 'planning_provider'),
+      codingProvider: _stringValue(map, 'coding_provider'),
+      timeout: Duration(milliseconds: _intValue(map, 'timeout_ms') ?? 120000),
+      maxResponseBytes: _intValue(map, 'max_response_bytes') ?? 4 * 1024 * 1024,
     );
   }
 }

@@ -90,3 +90,54 @@ You can specify a custom port with `--port` or `-p`:
 spectra dashboard --port 8080
 ```
 
+## Symphony-Aligned Scheduler (v0.2)
+
+Starting in v0.2 the orchestrator follows the OpenAI Symphony work-orchestration model. Spectra now treats long-running execution as a tracker-driven service in addition to the legacy `PLAN.md`-driven flow.
+
+### Core Pieces
+
+- **`WORKFLOW.md`**: a repo-owned policy file with YAML front matter and a Markdown prompt body. Loaded by `WorkflowLoader` and parsed into a typed `WorkflowConfig`.
+- **`IssueTrackerClient`**: pluggable adapter. Two ship out of the box:
+  - `linear` (`LinearTrackerClient`) — Linear GraphQL with pagination and error mapping.
+  - `local_plan` (`LocalPlanTrackerClient`) — adapts existing `.spectra/PLAN.md` tasks into normalized `Issue`s, so spec-driven projects keep working without an external tracker.
+- **`WorkspaceManager`**: creates one `git worktree` per issue under `workspace.root` (default `.spectra/workspaces/<key>`). Sanitizes issue identifiers, runs `after_create`, `before_run`, `after_run`, and `before_remove` hooks via `bash -lc`.
+- **`AgentRunner`**: pluggable execution engine.
+  - `LlmAgentRunner` (default) reuses Spectra's existing LLM providers and writes `<file_content>` blocks into the per-issue worktree.
+  - `CodexAppServerRunner` is reserved for the Codex `app-server` protocol.
+- **`Scheduler`**: single-authority state machine that owns the poll loop, dispatch, retries, reconciliation, and stall detection. State lives in `running`, `claimed`, `retryAttempts`, and `completed` maps.
+
+### Runtime Snapshot
+
+Instead of `AGENTS.json`, the new dashboard reads `RuntimeSnapshot` from the live scheduler (or `.spectra/RUNTIME.json` for cold starts). Endpoints:
+
+- `GET /api/v1/state` — full snapshot.
+- `GET /api/v1/issue/<identifier>` — per-issue detail.
+- `POST /api/v1/refresh` — request an immediate poll/reconcile cycle.
+
+Run `spectra progress --runs` to print the same snapshot in the terminal.
+
+### Hot Reload and Proof of Work
+
+- `WorkflowWatcher` (built on `package:watcher`) detects `WORKFLOW.md` changes and re-applies config without restart. The last known good config is preserved if a reload fails.
+- Each completed run writes a `proof.md` artifact under `.spectra/runs/<run_id>/` containing changed files, hook outcomes, retries, and a final recommendation.
+
+### Tracker Defaults
+
+`WORKFLOW.md` ships with `tracker.kind: local_plan` so existing projects keep working out of the box. To switch to Linear:
+
+```yaml
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: spectra
+  active_states:
+    - Todo
+    - In Progress
+agent:
+  runner: llm
+  max_concurrent_agents: 2
+  max_turns: 10
+---
+```
+

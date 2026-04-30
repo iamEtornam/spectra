@@ -12,6 +12,10 @@ AI-driven development often leads to technical debt, inconsistent patterns, and 
 - 🤖 **Automatic**: AI plans AND implements code
 - 👤 **Manual**: AI plans tasks, YOU implement (NEW in v0.1.5)
 - 🤝 **Interactive**: AI suggests, you review
+- 🎼 **Symphony Mode** (NEW in v0.2.0): drive long-running runs from a
+  repo-owned `WORKFLOW.md`, use a tracker (Linear or local PLAN.md), get
+  per-issue git worktrees, structured retries, and a run-first dashboard at
+  `/api/v1/state`.
 
 THIS is how you build systems that actually last.
 

@@ -282,6 +282,55 @@ void main() {
     });
 
     test(
+      'global max_concurrent_agents is respected across multiple tracker states',
+      () async {
+        // Regression for a global-cap race: _dispatchIssue is async, so the
+        // synchronous _dispatchCandidates loop only sees _running grow after
+        // its first await (workspace creation). The per-state cap defaults to
+        // the global cap when maxConcurrentAgentsByState is empty, so without
+        // an additional in-loop counter, candidates spanning N tracker states
+        // could be dispatched up to N * maxConcurrentAgents per tick.
+        final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');
+        addTearDown(() {
+          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+        });
+
+        final tracker = _FakeTracker(
+          candidates: <Issue>[
+            _issue('1', state: 'In Progress'),
+            _issue('2'), // 'Todo' (no blockers, eligible)
+            _issue('3'), // 'Todo'
+          ],
+        );
+        final completer = Completer<void>();
+        final runner = _SlowRunner(completer.future);
+        final workspace = _FakeWorkspaceManager(tempDir);
+        final scheduler = Scheduler(
+          config: _buildConfig(maxConcurrent: 2),
+          tracker: tracker,
+          workspaceManager: workspace,
+          runner: runner,
+          promptBuilder: (issue, attempt) => 'prompt',
+          logger: Logger(level: Level.quiet),
+          runsRoot: p.join(tempDir.path, 'runs'),
+          writeProofOfWork: false,
+        );
+
+        await scheduler.tick();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        // Even though candidates span two states ('In Progress' and 'Todo')
+        // and the per-state cap defaults to the global cap, the global cap
+        // must still bound the total number of concurrent runs.
+        expect(scheduler.running.length, lessThanOrEqualTo(2));
+        expect(scheduler.claimed.length, lessThanOrEqualTo(2));
+
+        completer.complete();
+        await scheduler.stop();
+      },
+    );
+
+    test(
       'updateConfig swaps the active config and is honored on the next tick',
       () async {
         final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');

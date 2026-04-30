@@ -78,6 +78,13 @@ class Scheduler {
   bool _running_ = false;
   bool _shuttingDown = false;
 
+  /// Number of `_dispatchIssue` invocations that have started but have not
+  /// yet finished placing an entry into `_running` (or failing). Required for
+  /// honoring the global concurrency cap because `_dispatchIssue` is async:
+  /// the synchronous dispatch loop and other retry callbacks would otherwise
+  /// observe a stale `_running.length` and over-dispatch.
+  int _pendingDispatches = 0;
+
   /// Creates a scheduler.
   Scheduler({
     required WorkflowConfig config,
@@ -259,8 +266,17 @@ class Scheduler {
       byStateCounts[key] = (byStateCounts[key] ?? 0) + 1;
     }
 
+    // `_dispatchIssue` is async and only adds to `_running` after its first
+    // `await` (workspace creation), so this synchronous loop never observes
+    // `_running` grow. The `_pendingDispatches` counter (incremented at the
+    // top of `_dispatchIssue` before any await) closes that race. Without
+    // this guard, candidates spanning multiple tracker states would each be
+    // capped only by the per-state limit — which, when
+    // `agent.max_concurrent_agents_by_state` is empty, defaults to the
+    // global limit and lets every state spawn up to that limit independently.
     for (final issue in sorted) {
-      if (_running.length >= config.agent.maxConcurrentAgents) {
+      if (_running.length + _pendingDispatches >=
+          config.agent.maxConcurrentAgents) {
         break;
       }
       if (_running.containsKey(issue.id) || _claimed.contains(issue.id)) {
@@ -313,6 +329,10 @@ class Scheduler {
   }
 
   Future<void> _dispatchIssue(Issue issue, {required int? attempt}) async {
+    // Reserve a slot synchronously so concurrent callers (the dispatch loop
+    // and any retry callbacks) see this dispatch in their global-cap math
+    // before the first `await` lands the entry in `_running`.
+    _pendingDispatches += 1;
     final attemptNumber = attempt ?? 1;
     final runId = '${issue.id}-$attemptNumber';
     _claimed.add(issue.id);
@@ -396,6 +416,8 @@ class Scheduler {
         attempt: attemptNumber,
         error: 'dispatch error: $e',
       );
+    } finally {
+      _pendingDispatches -= 1;
     }
   }
 
@@ -655,7 +677,11 @@ class Scheduler {
           );
           return;
         }
-        if (_running.length >= config.agent.maxConcurrentAgents) {
+        // Same staleness rule as `_dispatchCandidates`: count in-flight
+        // dispatches so concurrent retry callbacks do not collectively blow
+        // past the global cap.
+        if (_running.length + _pendingDispatches >=
+            config.agent.maxConcurrentAgents) {
           _scheduleFailureRetry(
             issue: match,
             attempt: entry.attempt + 1,

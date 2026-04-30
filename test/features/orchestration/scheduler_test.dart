@@ -281,6 +281,61 @@ void main() {
       await scheduler.stop();
     });
 
+    test(
+      'updateConfig swaps the active config and is honored on the next tick',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');
+        addTearDown(() {
+          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+        });
+
+        final tracker = _FakeTracker(
+          candidates: <Issue>[
+            _issue('1', state: 'In Progress'),
+            _issue('2', state: 'In Progress'),
+            _issue('3', state: 'In Progress'),
+          ],
+        );
+        final completer = Completer<void>();
+        final runner = _SlowRunner(completer.future);
+        final workspace = _FakeWorkspaceManager(tempDir);
+        final scheduler = Scheduler(
+          config: _buildConfig(maxConcurrent: 1),
+          tracker: tracker,
+          workspaceManager: workspace,
+          runner: runner,
+          promptBuilder: (issue, attempt) => 'prompt',
+          logger: Logger(level: Level.quiet),
+          runsRoot: p.join(tempDir.path, 'runs'),
+          writeProofOfWork: false,
+        );
+        addTearDown(scheduler.stop);
+
+        await scheduler.tick();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+
+        // The initial cap of 1 limits dispatch to a single concurrent run.
+        expect(scheduler.running.length, equals(1));
+        expect(scheduler.config.agent.maxConcurrentAgents, equals(1));
+
+        scheduler.updateConfig(_buildConfig(maxConcurrent: 3));
+
+        // The new cap is reflected on the live config and recorded as an event.
+        expect(scheduler.config.agent.maxConcurrentAgents, equals(3));
+        expect(
+          scheduler.recentEvents.map((e) => e.name),
+          contains('config_reloaded'),
+        );
+
+        // The next tick should dispatch up to the new cap without restarting.
+        await scheduler.tick();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+
+        expect(scheduler.running.length, equals(3));
+        completer.complete();
+      },
+    );
+
     test('reports tracker fetch failures via recentEvents', () async {
       final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');
       addTearDown(() {

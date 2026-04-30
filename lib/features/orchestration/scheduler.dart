@@ -28,7 +28,15 @@ typedef PromptBuilder = String Function(Issue issue, int? attempt);
 /// scheduling state — runners and trackers report results back through it.
 class Scheduler {
   /// Workflow config governing dispatch behavior.
-  final WorkflowConfig config;
+  ///
+  /// Mutable so [updateConfig] can apply hot-reloaded `WORKFLOW.md` settings.
+  /// Every read (`config.*`) inside the scheduler happens dynamically per
+  /// tick / dispatch / retry, so swapping this field takes effect on the next
+  /// tick without restarting the scheduler.
+  WorkflowConfig _config;
+
+  /// Returns the currently active workflow config.
+  WorkflowConfig get config => _config;
 
   /// Tracker adapter used to fetch candidates and refresh state.
   final IssueTrackerClient tracker;
@@ -72,7 +80,7 @@ class Scheduler {
 
   /// Creates a scheduler.
   Scheduler({
-    required this.config,
+    required WorkflowConfig config,
     required this.tracker,
     required this.workspaceManager,
     required this.runner,
@@ -81,7 +89,44 @@ class Scheduler {
     this.eventHistorySize = 100,
     this.runsRoot = '.spectra/runs',
     this.writeProofOfWork = true,
-  });
+  }) : _config = config;
+
+  /// Hot-swaps the active workflow config.
+  ///
+  /// Called by `WorkflowWatcher` listeners after `WORKFLOW.md` is reloaded.
+  /// Subsequent reads of `config.*` inside ticks, dispatches, and retries
+  /// observe the new values immediately. If `polling.interval` changed, the
+  /// pending poll timer is cancelled and rescheduled with the new value so
+  /// the change takes effect without waiting for the previously scheduled
+  /// tick to fire.
+  ///
+  /// In-flight agent sessions are not restarted; callers that need to react
+  /// to changes in `tracker.kind`, `agent.runner`, or `workspace.root` should
+  /// surface their own operator-visible warnings before invoking this method.
+  void updateConfig(WorkflowConfig next) {
+    final previous = _config;
+    if (identical(previous, next)) return;
+
+    _config = next;
+    final intervalChanged = previous.polling.interval != next.polling.interval;
+
+    _record(
+      'config_reloaded',
+      'Workflow config reloaded '
+          '(poll=${next.polling.interval.inMilliseconds}ms, '
+          'max_concurrent=${next.agent.maxConcurrentAgents}, '
+          'max_turns=${next.agent.maxTurns}).',
+      data: <String, dynamic>{
+        'interval_changed': intervalChanged,
+        'max_concurrent_agents': next.agent.maxConcurrentAgents,
+        'max_turns': next.agent.maxTurns,
+      },
+    );
+
+    if (intervalChanged && _running_ && !_shuttingDown) {
+      _scheduleNextTick();
+    }
+  }
 
   /// Whether the scheduler poll loop is active.
   bool get isRunning => _running_;

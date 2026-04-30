@@ -139,13 +139,18 @@ class StartCommand extends SpectraCommand {
       logger: logger,
     );
 
+    // Captured by the prompt builder closure so that `WORKFLOW.md` reloads
+    // pick up the new template body without rebuilding the scheduler.
+    var activeDefinition = definition;
+    var activeConfig = workflowConfig;
+
     final scheduler = Scheduler(
       config: workflowConfig,
       tracker: tracker,
       workspaceManager: workspaceManager,
       runner: runner,
       promptBuilder: (Issue issue, int? attempt) => renderer.render(
-        definition.promptTemplate,
+        activeDefinition.promptTemplate,
         issue: issue,
         attempt: attempt,
       ),
@@ -156,11 +161,15 @@ class StartCommand extends SpectraCommand {
     final reloadSub = watcher.reloads.listen((reload) {
       if (reload.error != null) {
         logger.err('WORKFLOW.md reload failed: ${reload.error!.message}');
-      } else {
-        logger.info(
-          'WORKFLOW.md reloaded; new config will apply on next tick.',
-        );
+        return;
       }
+      _warnOnAdapterChanges(previous: activeConfig, next: reload.config);
+      activeDefinition = reload.definition;
+      activeConfig = reload.config;
+      scheduler.updateConfig(reload.config);
+      logger.info(
+        'WORKFLOW.md reloaded; new config applied to the running scheduler.',
+      );
     });
     await watcher.start();
 
@@ -186,6 +195,37 @@ class StartCommand extends SpectraCommand {
       await runner.close();
       await tracker.close();
       _deleteRuntimeFile();
+    }
+  }
+
+  /// Warns when a hot-reloaded `WORKFLOW.md` changes fields the running
+  /// scheduler cannot re-bind (tracker adapter, runner adapter, workspace
+  /// root). Configuration values like poll interval, concurrency caps, and
+  /// hooks are applied immediately by [Scheduler.updateConfig].
+  void _warnOnAdapterChanges({
+    required WorkflowConfig previous,
+    required WorkflowConfig next,
+  }) {
+    if (previous.tracker.kind != next.tracker.kind) {
+      logger.warn(
+        'tracker.kind changed from "${previous.tracker.kind}" to '
+        '"${next.tracker.kind}". Restart `spectra start` for the new tracker '
+        'to take effect.',
+      );
+    }
+    if (previous.agent.runner != next.agent.runner) {
+      logger.warn(
+        'agent.runner changed from "${previous.agent.runner}" to '
+        '"${next.agent.runner}". Restart `spectra start` for the new runner '
+        'to take effect.',
+      );
+    }
+    if (previous.workspace.root != next.workspace.root) {
+      logger.warn(
+        'workspace.root changed from "${previous.workspace.root}" to '
+        '"${next.workspace.root}". Restart `spectra start` for the new '
+        'workspace root to take effect.',
+      );
     }
   }
 

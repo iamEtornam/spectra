@@ -204,7 +204,7 @@ query SpectraIssuesByState($projectSlug: String!, $stateNames: [String!]!, $firs
         'projectSlug': projectSlug,
         'stateNames': stateNames,
         'first': pageSize,
-        if (cursor != null) 'after': cursor,
+        'after': ?cursor,
       };
 
       final response = await _executeRequest(

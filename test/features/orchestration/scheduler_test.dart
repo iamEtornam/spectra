@@ -331,6 +331,129 @@ void main() {
     );
 
     test(
+      'retainedRetryHistoryCount returns to zero after a successful retry',
+      () async {
+        // Regression for the `_retryHistoryByIssue` memory leak: each failed
+        // attempt appends a history entry, but until the cleanup was added,
+        // the map kept growing for the life of the scheduler. With a tiny
+        // retry cap, the failure-retry timer fires inside the test window and
+        // the second (success) dispatch invokes the cleanup hook.
+        final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');
+        addTearDown(() {
+          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+        });
+
+        final scriptedRunner = _ScriptedRunner(
+          scripts: <List<RunnerEvent>>[
+            <RunnerEvent>[
+              SessionStarted(sessionId: 's-fail'),
+              TurnStarted(turnNumber: 1),
+              TurnFailed(
+                turnNumber: 1,
+                category: RunnerErrorCategory.providerError,
+                message: 'forced failure',
+              ),
+              RunFinished(succeeded: false, turns: 1),
+            ],
+            <RunnerEvent>[
+              SessionStarted(sessionId: 's-ok'),
+              TurnStarted(turnNumber: 1),
+              TurnCompleted(turnNumber: 1),
+              RunFinished(succeeded: true, turns: 1),
+            ],
+          ],
+        );
+        final tracker = _FakeTracker(
+          candidates: <Issue>[_issue('1', state: 'In Progress')],
+        );
+        final workspace = _FakeWorkspaceManager(tempDir);
+        final scheduler = Scheduler(
+          // Tiny retry cap so the failure-retry timer fires inside the test
+          // window. The first attempt's backoff = min(10s * 2^0, cap) = cap.
+          config: _buildConfig(retryCap: const Duration(milliseconds: 10)),
+          tracker: tracker,
+          workspaceManager: workspace,
+          runner: scriptedRunner,
+          promptBuilder: (issue, attempt) => 'prompt',
+          logger: Logger(level: Level.quiet),
+          runsRoot: p.join(tempDir.path, 'runs'),
+          writeProofOfWork: false,
+        );
+        addTearDown(scheduler.stop);
+
+        await scheduler.tick();
+
+        // Wait for both dispatches (one failed, one succeeded) to complete and
+        // for the success-path cleanup to drop the retry history. Polling
+        // avoids racing with the precise retry-timer firing.
+        final deadline = DateTime.now().add(const Duration(seconds: 3));
+        while (DateTime.now().isBefore(deadline)) {
+          final dispatched = scheduler.recentEvents
+              .where((e) => e.name == 'dispatched')
+              .length;
+          if (dispatched >= 2 && scheduler.retainedRetryHistoryCount == 0) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 25));
+        }
+
+        // Both attempts must have run for the test to be meaningful.
+        expect(
+          scheduler.recentEvents.where((e) => e.name == 'dispatched').length,
+          greaterThanOrEqualTo(2),
+          reason: 'expected the failure retry to have re-dispatched the issue',
+        );
+        // And the success cleanup must have dropped the retained history.
+        expect(scheduler.retainedRetryHistoryCount, equals(0));
+      },
+    );
+
+    test('stop() clears all bookkeeping maps', () async {
+      // Defense-in-depth check for the leak fix: even if no run ever
+      // reaches the success path, scheduler.stop() must release everything.
+      final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
+
+      final runner = _FakeRunner(<RunnerEvent>[
+        SessionStarted(sessionId: 's'),
+        TurnStarted(turnNumber: 1),
+        TurnFailed(
+          turnNumber: 1,
+          category: RunnerErrorCategory.providerError,
+          message: 'boom',
+        ),
+        RunFinished(succeeded: false, turns: 1),
+      ]);
+      final tracker = _FakeTracker(
+        candidates: <Issue>[_issue('1', state: 'In Progress')],
+      );
+      final workspace = _FakeWorkspaceManager(tempDir);
+      final scheduler = Scheduler(
+        config: _buildConfig(retryCap: const Duration(seconds: 30)),
+        tracker: tracker,
+        workspaceManager: workspace,
+        runner: runner,
+        promptBuilder: (issue, attempt) => 'prompt',
+        logger: Logger(level: Level.quiet),
+        runsRoot: p.join(tempDir.path, 'runs'),
+        writeProofOfWork: false,
+      );
+
+      await scheduler.tick();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // Sanity-check that the failure path actually retained history.
+      expect(scheduler.retainedRetryHistoryCount, greaterThanOrEqualTo(1));
+
+      await scheduler.stop();
+      expect(scheduler.retainedRetryHistoryCount, equals(0));
+      expect(scheduler.running, isEmpty);
+      expect(scheduler.claimed, isEmpty);
+      expect(scheduler.retryAttempts, isEmpty);
+    });
+
+    test(
       'updateConfig swaps the active config and is honored on the next tick',
       () async {
         final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');
@@ -433,6 +556,31 @@ class _SlowRunner implements AgentRunner {
     yield SessionStarted(sessionId: 's');
     await done;
     yield RunFinished(succeeded: true, turns: 1);
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _ScriptedRunner implements AgentRunner {
+  /// Each list of events is replayed for one consecutive call to `run`.
+  /// When the scripts are exhausted, the last script repeats forever.
+  final List<List<RunnerEvent>> scripts;
+  int _index = 0;
+
+  _ScriptedRunner({required this.scripts});
+
+  @override
+  String get name => 'scripted';
+
+  @override
+  Stream<RunnerEvent> run(AgentRunRequest request) async* {
+    final events =
+        scripts[_index < scripts.length ? _index : scripts.length - 1];
+    _index += 1;
+    for (final event in events) {
+      yield event;
+    }
   }
 
   @override

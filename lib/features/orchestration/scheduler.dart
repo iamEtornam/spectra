@@ -163,6 +163,13 @@ class Scheduler {
   List<String> get validationErrors =>
       List<String>.unmodifiable(_validationErrors);
 
+  /// Number of issues for which retry history is currently retained.
+  ///
+  /// Exposed for tests that verify the bookkeeping maps do not leak when
+  /// runs reach terminal states. Operators should not rely on this in
+  /// production code.
+  int get retainedRetryHistoryCount => _retryHistoryByIssue.length;
+
   /// Starts the poll loop. Returns immediately after kicking off the first
   /// tick; the loop runs in the background until [stop] is called.
   Future<void> start() async {
@@ -179,8 +186,12 @@ class Scheduler {
   }
 
   /// Stops the scheduler and cancels all running workers/timers.
+  ///
+  /// Idempotent: calling stop() repeatedly (or after a scheduler that was
+  /// driven via direct `tick()` invocations without `start()`) still releases
+  /// in-memory bookkeeping so callers can rely on it for cleanup.
   Future<void> stop() async {
-    if (!_running_) return;
+    final wasRunning = _running_;
     _shuttingDown = true;
     _running_ = false;
     _pollTimer?.cancel();
@@ -198,8 +209,12 @@ class Scheduler {
     await Future.wait(cancellations);
     _running.clear();
     _claimed.clear();
+    _changedFilesByRun.clear();
+    _retryHistoryByIssue.clear();
 
-    _record('scheduler_stopped', 'Scheduler stopped.');
+    if (wasRunning) {
+      _record('scheduler_stopped', 'Scheduler stopped.');
+    }
   }
 
   /// Runs one full tick: reconcile -> validate -> fetch -> dispatch.
@@ -511,6 +526,10 @@ class Scheduler {
 
     if (succeeded) {
       _completed.add(issueId);
+      // The proof-of-work artifact for this success has already captured the
+      // accumulated retry history above; release it so a long-running scheduler
+      // does not retain per-issue history forever.
+      _retryHistoryByIssue.remove(issueId);
       _scheduleContinuationRetry(
         issueId: issueId,
         identifier: entry.issue.identifier,
@@ -670,6 +689,10 @@ class Scheduler {
         );
         if (match == null) {
           _claimed.remove(issueId);
+          // Issue is gone from the tracker (closed, deleted, moved out of
+          // active states); drop any per-issue history we held for the proof
+          // artifact so the map does not grow unbounded.
+          _retryHistoryByIssue.remove(issueId);
           _record(
             'retry_released',
             '${entry.identifier} no longer eligible; releasing claim.',
@@ -791,6 +814,9 @@ class Scheduler {
       }
     }
 
+    // Reconciliation cancellation means the issue moved to a terminal or
+    // non-active tracker state; per-issue retry history is no longer useful.
+    _retryHistoryByIssue.remove(issueId);
     if (phase == RunAttemptPhase.canceledByReconciliation) {
       _claimed.remove(issueId);
     }

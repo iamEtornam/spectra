@@ -209,5 +209,57 @@ void main() {}
         isTrue,
       );
     });
+
+    test(
+      'maxResponseBytes counts UTF-8 bytes, not UTF-16 code units',
+      () async {
+        // Each "🎉" is 2 UTF-16 code units but 4 UTF-8 bytes. A 16-byte cap
+        // therefore allows up to ~4 of these emoji, even though
+        // String.length would mistakenly read it as 8 units, well under 16.
+        const fourEmoji = '🎉🎉🎉🎉'; // 8 UTF-16 units, 16 UTF-8 bytes
+        const tooManyEmoji = '🎉🎉🎉🎉🎉'; // 10 UTF-16 units, 20 UTF-8 bytes
+        const tinyConfig = LlmRunnerWorkflowConfig(
+          planningProvider: null,
+          codingProvider: null,
+          timeout: Duration(seconds: 5),
+          maxResponseBytes: 16,
+        );
+
+        Future<List<RunnerEvent>> runWith(String response) async {
+          final runner = LlmAgentRunner(
+            provider: _StubProvider(response: response),
+            llmConfig: tinyConfig,
+            logger: Logger(level: Level.quiet),
+          );
+          return runner
+              .run(
+                AgentRunRequest(
+                  issue: _issue,
+                  workspace: _makeWorkspace(workspaceDir),
+                  renderedPrompt: 'Prompt',
+                  attempt: null,
+                  maxTurns: 1,
+                ),
+              )
+              .toList();
+        }
+
+        // 16 bytes (== cap) and lacks <file_content> blocks, so it falls
+        // through to emptyResponse rather than tripping the byte-cap.
+        final atCap = await runWith(fourEmoji);
+        expect(
+          atCap.whereType<TurnFailed>().single.category,
+          equals(RunnerErrorCategory.emptyResponse),
+        );
+
+        // 20 bytes > cap; must fail with responseTooLarge even though
+        // String.length is only 10.
+        final overCap = await runWith(tooManyEmoji);
+        expect(
+          overCap.whereType<TurnFailed>().single.category,
+          equals(RunnerErrorCategory.responseTooLarge),
+        );
+      },
+    );
   });
 }

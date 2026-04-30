@@ -247,6 +247,16 @@ class HooksWorkflowConfig {
   /// Timeout applied to hook execution.
   final Duration timeout;
 
+  /// Optional shell executable used to run hook scripts. When `null`, the
+  /// runtime picks a platform-appropriate default (`bash` on POSIX,
+  /// `cmd.exe` on Windows).
+  final String? shellExecutable;
+
+  /// Optional shell arguments preceding the hook script. When `null`, the
+  /// runtime picks defaults that match [shellExecutable]
+  /// (`['-lc', script]` for `bash`, `['/c', script]` for `cmd.exe`).
+  final List<String>? shellArguments;
+
   /// Creates hook config.
   const HooksWorkflowConfig({
     required this.afterCreate,
@@ -254,16 +264,24 @@ class HooksWorkflowConfig {
     required this.afterRun,
     required this.beforeRemove,
     required this.timeout,
+    this.shellExecutable,
+    this.shellArguments,
   });
 
   /// Builds hook config from a map.
   factory HooksWorkflowConfig.fromMap(Map<String, dynamic> map) {
+    final shellArgsRaw = map['shell_arguments'];
+    final shellArgs = shellArgsRaw is List<dynamic>
+        ? List<String>.unmodifiable(shellArgsRaw.whereType<String>())
+        : null;
     return HooksWorkflowConfig(
       afterCreate: _stringValue(map, 'after_create'),
       beforeRun: _stringValue(map, 'before_run'),
       afterRun: _stringValue(map, 'after_run'),
       beforeRemove: _stringValue(map, 'before_remove'),
       timeout: Duration(milliseconds: _intValue(map, 'timeout_ms') ?? 60000),
+      shellExecutable: _stringValue(map, 'shell'),
+      shellArguments: shellArgs,
     );
   }
 }

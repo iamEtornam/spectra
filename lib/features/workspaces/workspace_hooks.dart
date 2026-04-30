@@ -83,8 +83,56 @@ class WorkspaceHookRunner {
   /// Maximum bytes of combined stdout/stderr captured per hook (truncated).
   final int maxOutputBytes;
 
-  /// Creates a hook runner.
-  const WorkspaceHookRunner({required this.logger, this.maxOutputBytes = 4096});
+  /// Whether the host platform is Windows. Injectable so tests can pin the
+  /// branch independently of the runtime they execute on.
+  final bool isWindows;
+
+  /// Creates a hook runner. By default `isWindows` is read from
+  /// `Platform.isWindows`.
+  WorkspaceHookRunner({
+    required this.logger,
+    this.maxOutputBytes = 4096,
+    bool? isWindows,
+  }) : isWindows = isWindows ?? Platform.isWindows;
+
+  /// Resolves the shell invocation for [hooks].
+  ///
+  /// Precedence:
+  ///   1. `hooks.shell_executable` + `hooks.shell_arguments` (config override).
+  ///   2. `cmd.exe /c <script>` on Windows.
+  ///   3. `bash -lc <script>` on POSIX (Symphony §9.4 default).
+  ///
+  /// When only `hooks.shell_arguments` is supplied, the literal token `{}`
+  /// (or, if absent, an appended argument at the end) is replaced by the
+  /// rendered script.
+  _ShellInvocation _resolveShellInvocation(
+    HooksWorkflowConfig hooks,
+    String script,
+  ) {
+    final shell = hooks.shellExecutable;
+    final args = hooks.shellArguments;
+    if (shell != null && shell.isNotEmpty) {
+      final resolvedArgs = args == null
+          ? <String>[script]
+          : <String>[
+              for (final a in args)
+                if (a == '{}') script else a,
+              if (!args.contains('{}')) script,
+            ];
+      return _ShellInvocation(executable: shell, arguments: resolvedArgs);
+    }
+
+    if (isWindows) {
+      return _ShellInvocation(
+        executable: 'cmd.exe',
+        arguments: <String>['/c', script],
+      );
+    }
+    return _ShellInvocation(
+      executable: 'bash',
+      arguments: <String>['-lc', script],
+    );
+  }
 
   /// Runs [kind] for [workspacePath] using config in [hooks].
   ///
@@ -109,11 +157,13 @@ class WorkspaceHookRunner {
 
     logger.detail('[hook ${kind.keyName}] starting in $workspacePath');
 
+    final invocation = _resolveShellInvocation(hooks, script);
+
     final Process process;
     try {
       process = await Process.start(
-        'bash',
-        <String>['-lc', script],
+        invocation.executable,
+        invocation.arguments,
         workingDirectory: workspacePath,
         runInShell: false,
       );
@@ -128,13 +178,32 @@ class WorkspaceHookRunner {
       );
     }
 
+    // Bound the captured output at write time so a runaway hook script that
+    // floods stdout/stderr cannot OOM the orchestrator. The streams are still
+    // drained from the OS pipe buffer (so the child doesn't block on a full
+    // pipe), the data past `maxOutputBytes` is just dropped on the floor.
     final outputBuffer = StringBuffer();
+    var truncated = false;
+    void appendBounded(String chunk) {
+      if (outputBuffer.length >= maxOutputBytes) {
+        truncated = true;
+        return;
+      }
+      final remaining = maxOutputBytes - outputBuffer.length;
+      if (chunk.length <= remaining) {
+        outputBuffer.write(chunk);
+      } else {
+        outputBuffer.write(chunk.substring(0, remaining));
+        truncated = true;
+      }
+    }
+
     final stdoutSub = process.stdout
         .transform(utf8.decoder)
-        .listen(outputBuffer.write);
+        .listen(appendBounded);
     final stderrSub = process.stderr
         .transform(utf8.decoder)
-        .listen(outputBuffer.write);
+        .listen(appendBounded);
 
     int? exitCode;
     var timedOut = false;
@@ -152,7 +221,9 @@ class WorkspaceHookRunner {
       await stderrSub.cancel();
     }
 
-    final captured = _truncate(outputBuffer.toString());
+    final captured = truncated
+        ? '${outputBuffer.toString()}...[truncated]'
+        : outputBuffer.toString();
     final succeeded = !timedOut && exitCode == 0;
 
     if (timedOut) {
@@ -174,11 +245,6 @@ class WorkspaceHookRunner {
     );
   }
 
-  String _truncate(String value) {
-    if (value.length <= maxOutputBytes) return value;
-    return '${value.substring(0, maxOutputBytes)}...[truncated]';
-  }
-
   String? _scriptFor(WorkspaceHookKind kind, HooksWorkflowConfig hooks) {
     switch (kind) {
       case WorkspaceHookKind.afterCreate:
@@ -191,4 +257,10 @@ class WorkspaceHookRunner {
         return hooks.beforeRemove;
     }
   }
+}
+
+class _ShellInvocation {
+  final String executable;
+  final List<String> arguments;
+  const _ShellInvocation({required this.executable, required this.arguments});
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:mason_logger/mason_logger.dart';
@@ -139,12 +140,20 @@ class LlmAgentRunner implements AgentRunner {
       return _TurnOutcome(events: events, succeeded: false);
     }
 
-    if (response.length > llmConfig.maxResponseBytes) {
+    // `String.length` returns UTF-16 code units, not bytes. The cap is named
+    // `maxResponseBytes` and is meant to bound network/payload size, so we
+    // measure the actual UTF-8 byte count. For plain ASCII responses these
+    // numbers match; for multi-byte content (emojis, CJK, accented Latin)
+    // the UTF-16 count can be 2-4x smaller than the real byte size.
+    final responseBytes = utf8.encode(response).length;
+    if (responseBytes > llmConfig.maxResponseBytes) {
       events.add(
         TurnFailed(
           turnNumber: turn,
           category: RunnerErrorCategory.responseTooLarge,
-          message: 'LLM response exceeded ${llmConfig.maxResponseBytes} bytes.',
+          message:
+              'LLM response of $responseBytes bytes exceeded '
+              '${llmConfig.maxResponseBytes} bytes.',
         ),
       );
       return _TurnOutcome(events: events, succeeded: false);

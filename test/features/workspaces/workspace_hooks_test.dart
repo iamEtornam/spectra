@@ -93,7 +93,9 @@ void main() {
     test('shell can be overridden via WORKFLOW.md', () async {
       if (Platform.isWindows) return;
       // Pick `sh` as a portable POSIX override, asserting the resolver
-      // honors `hooks.shell` instead of falling back to `bash`.
+      // honors `hooks.shell` instead of falling back to `bash`. We avoid
+      // probes like `echo $0` that vary across shells (bash prints "bash",
+      // dash on Ubuntu may print empty), and just assert the script ran.
       final runner = WorkspaceHookRunner(
         logger: Logger(level: Level.quiet),
         isWindows: false,
@@ -102,15 +104,14 @@ void main() {
         kind: WorkspaceHookKind.afterRun,
         workspacePath: tempDir.path,
         hooks: _hooks(
-          afterRun: r'echo $0',
+          afterRun: 'echo override-ok',
           shell: 'sh',
           shellArguments: const <String>['-c'],
         ),
       );
 
       expect(outcome.succeeded, isTrue);
-      // `sh -c "echo $0"` prints `sh` (or the literal arg-0 the shell sees).
-      expect(outcome.output, isNotEmpty);
+      expect(outcome.output.trim(), equals('override-ok'));
     });
 
     test('on Windows the default shell is cmd.exe /c <script>', () async {

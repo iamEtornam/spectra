@@ -46,12 +46,32 @@ jobs:
       
       - name: Run e2e tests
         run: dart test test/e2e/
-      
+
+      - name: Run feature tests
+        run: dart test test/features/
+
       - name: Generate coverage
+        # Coverage is generated per-suite (mirroring the discrete test steps
+        # above) instead of with a single `dart test --coverage=coverage`
+        # invocation. Multiple unrelated suites share `ConfigService` and
+        # `SecureStorageService` singletons, and lumping them into one Dart
+        # VM triggers state-bleed races that do not happen in production. The
+        # per-suite invocation gives accurate coverage without that artifact.
         run: |
-          dart test --coverage=coverage
+          mkdir -p coverage
+          for suite in \
+            test/models/ \
+            test/services/secure_storage_service_test.dart \
+            test/agents/ \
+            test/utils/ \
+            test/commands/ \
+            test/e2e/ \
+            test/features/; do
+            dart test --coverage=coverage "$suite"
+          done
           dart pub global activate coverage
-          dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
+          dart pub global run coverage:format_coverage \
+            --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
       
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -81,7 +101,15 @@ jobs:
       
       - name: Verify no secrets in code
         run: |
-          if grep -r "sk-" lib/ || grep -r "AIza" lib/; then
-            echo "Potential API key found in code!"
+          # Match real-looking key shapes only; the previous `grep "sk-"`
+          # was firing on docstring placeholders like `'sk-...'`.
+          # OpenAI: `sk-` followed by 20+ alphanumerics (no dots).
+          # Google: `AIza` followed by 35+ alphanumerics, dashes, underscores.
+          if grep -REn 'sk-[A-Za-z0-9]{20,}' lib/; then
+            echo "Potential OpenAI API key found in code!"
+            exit 1
+          fi
+          if grep -REn 'AIza[A-Za-z0-9_-]{35,}' lib/; then
+            echo "Potential Google API key found in code!"
             exit 1
           fi

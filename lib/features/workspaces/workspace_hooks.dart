@@ -198,27 +198,37 @@ class WorkspaceHookRunner {
       }
     }
 
-    final stdoutSub = process.stdout
+    // Drain both streams to completion rather than cancelling them when the
+    // exit code arrives: `process.exitCode` can complete before buffered
+    // output has been delivered, and cancelling at that point silently drops
+    // the tail of the hook's output (observed on fast Linux CI runners).
+    final stdoutDone = process.stdout
         .transform(utf8.decoder)
-        .listen(appendBounded);
-    final stderrSub = process.stderr
+        .forEach(appendBounded);
+    final stderrDone = process.stderr
         .transform(utf8.decoder)
-        .listen(appendBounded);
+        .forEach(appendBounded);
 
     int? exitCode;
     var timedOut = false;
+    exitCode = await process.exitCode.timeout(
+      hooks.timeout,
+      onTimeout: () {
+        timedOut = true;
+        process.kill(ProcessSignal.sigterm);
+        return -1;
+      },
+    );
+
+    // The streams close once the process is gone; the short timeout guards
+    // against a SIGTERM-ignoring child keeping the pipes open forever.
     try {
-      exitCode = await process.exitCode.timeout(
-        hooks.timeout,
-        onTimeout: () {
-          timedOut = true;
-          process.kill(ProcessSignal.sigterm);
-          return -1;
-        },
-      );
-    } finally {
-      await stdoutSub.cancel();
-      await stderrSub.cancel();
+      await Future.wait([
+        stdoutDone,
+        stderrDone,
+      ]).timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Decode errors or straggling pipes: keep whatever was captured.
     }
 
     final captured = truncated

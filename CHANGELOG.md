@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-04-30
 
+### Added — Docs/code alignment
+
+- **Interactive execution mode** for `spectra execute`: per-file review
+  (`[A] Apply / [E] Edit / [S] Skip / [Q] Quit`, `[E]` opens `$EDITOR`,
+  multi-argument values like `code --wait` supported) plus a
+  `[Y]/[N]/[E]` commit prompt. Previously the Interactive config value
+  silently behaved as Automatic.
+- `LLMProvider.model` getter; the LLM response cache is now keyed by the
+  concrete model id so two models of one provider never share entries.
+- `RuntimeSnapshot` includes a `proof_of_work` map (issue identifier ->
+  `proof.md` path).
+- Documentation: `doc/context-engineering.md` and `doc/orchestration.md`
+  written (previously empty); all doc pages linked from `docs.json`;
+  testing/security/commands guides refreshed to match the code.
+
+### Fixed
+
+- **Secure storage cipher**: keystream is now SHA-256 counter-mode over
+  (key, IV, block counter) instead of a `Random` PRNG seeded by a byte
+  sum. Legacy `creds.enc` files are decrypted via fallback and
+  transparently re-encrypted. Writes are atomic (write-then-rename),
+  `.secure` is chmod 700/600 on POSIX, and corrupt key/creds files
+  degrade to an empty config with a warning instead of crashing.
+- **Stuck-agent recovery**: workers marked `stuck` by the Witness are now
+  released and reset to idle, and stale completions from orphaned
+  in-flight LLM calls can no longer clobber a reassigned task.
+- **`agent.max_turns` is enforced**: scheduler continuations stop at the
+  limit, tracked as successful turns so failure retries do not deplete
+  the budget. Unsupported `agent.runner` values are rejected at
+  validation instead of silently running the LLM runner.
+- `tracker.kind` defaults to `local_plan` in config (not just the
+  scaffold); agent defaults aligned with docs (`max_concurrent_agents`
+  2, `max_turns` 10).
+- `spectra execute` skips tasks already marked `status="completed"`, so
+  `spectra resume` genuinely continues where it left off.
+- Workspace hook output is no longer truncated/dropped when a hook exits
+  quickly: streams are drained to completion instead of cancelled on
+  exit.
+- Test suite runs against an isolated temp home (`useTestHome`) and is
+  parallel-safe; the legacy-YAML migration tests are fixed and the
+  previously skipped e2e migration test is implemented.
+
 ### Added — Symphony work-orchestration model
 
 - **`WORKFLOW.md` policy contract**: repo-owned YAML front matter + Markdown

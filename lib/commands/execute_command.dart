@@ -189,15 +189,13 @@ void main() {}
         var content = fileContents[path]!;
 
         if (interactive) {
-          final action = _reviewSuggestion(path, content);
+          final (action, reviewed) = await _reviewInteractively(path, content);
           if (action == _ReviewAction.quit) return false;
           if (action == _ReviewAction.skip) {
             logger.detail('Skipped $path');
             continue;
           }
-          if (action == _ReviewAction.edit) {
-            content = await _editSuggestion(path, content) ?? content;
-          }
+          content = reviewed;
         }
 
         final file = File(path);
@@ -233,6 +231,28 @@ void main() {}
     return true;
   }
 
+  /// Runs the review menu until the user lands on a final decision.
+  ///
+  /// A failed editor launch re-shows the menu instead of silently applying
+  /// the unedited suggestion — the user picked Edit precisely because they
+  /// did not want it as-is.
+  Future<(_ReviewAction, String)> _reviewInteractively(
+    String path,
+    String content,
+  ) async {
+    while (true) {
+      final action = _reviewSuggestion(path, content);
+      if (action != _ReviewAction.edit) return (action, content);
+
+      final edited = await _editSuggestion(path, content);
+      if (edited == null) {
+        logger.warn('Edit failed — nothing was applied. Choose again.');
+        continue;
+      }
+      return (_ReviewAction.apply, edited);
+    }
+  }
+
   /// Shows a generated file and asks the user what to do with it.
   _ReviewAction _reviewSuggestion(String path, String content) {
     logger.info('─' * 60);
@@ -263,15 +283,19 @@ void main() {}
     );
     tempFile.writeAsStringSync(content);
 
+    // $EDITOR may carry arguments ("code --wait", "vim -u NONE") — split
+    // into executable + args or Process.start treats it as one binary name.
     final editor =
-        Platform.environment['EDITOR'] ??
-        Platform.environment['VISUAL'] ??
-        (Platform.isWindows ? 'notepad' : 'vi');
+        (Platform.environment['EDITOR'] ??
+                Platform.environment['VISUAL'] ??
+                (Platform.isWindows ? 'notepad' : 'vi'))
+            .trim();
+    final editorParts = editor.split(RegExp(r'\s+'));
 
     try {
       final process = await Process.start(
-        editor,
-        [tempFile.path],
+        editorParts.first,
+        [...editorParts.skip(1), tempFile.path],
         mode: ProcessStartMode.inheritStdio,
         runInShell: true,
       );

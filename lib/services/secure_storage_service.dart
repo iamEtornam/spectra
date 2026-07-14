@@ -211,8 +211,12 @@ class SecureStorageService {
     final jsonData = json.encode(data);
     final encrypted = _encrypt(utf8.encode(jsonData), key);
 
-    await _credentialsFile.writeAsBytes(encrypted);
-    _restrictPermissions(_credentialsFile.path, '600');
+    // Write-then-rename so a crash mid-write can never leave a torn
+    // creds.enc (rename is atomic on POSIX).
+    final tempFile = File('${_credentialsFile.path}.tmp');
+    await tempFile.writeAsBytes(encrypted);
+    _restrictPermissions(tempFile.path, '600');
+    tempFile.renameSync(_credentialsFile.path);
   }
 
   /// Retrieves securely stored data.
@@ -225,20 +229,45 @@ class SecureStorageService {
       return {};
     }
 
-    final key = await _getMachineKey();
-    final encrypted = await _credentialsFile.readAsBytes();
+    final List<int> key;
+    final List<int> encrypted;
+    try {
+      key = await _getMachineKey();
+      encrypted = await _credentialsFile.readAsBytes();
+    } catch (_) {
+      // Corrupt .key or unreadable creds file: honor the documented
+      // contract (empty map on failure) instead of crashing every command.
+      _warnUnreadable();
+      return {};
+    }
 
     final current = _tryDecode(() => _decrypt(encrypted, key));
     if (current != null) return current;
 
     final legacy = _tryDecode(() => _decryptLegacy(encrypted, key));
     if (legacy != null) {
-      // Upgrade the on-disk format to the current cipher.
-      await store(legacy);
+      // Upgrade the on-disk format to the current cipher. Best-effort: the
+      // data decrypted fine, so a failed rewrite (e.g. read-only file) must
+      // not turn a successful read into an error.
+      try {
+        await store(legacy);
+      } catch (_) {
+        // Keep serving the legacy format until the file is writable again.
+      }
       return legacy;
     }
 
+    _warnUnreadable();
     return {};
+  }
+
+  /// Warns on stderr when stored credentials exist but cannot be read, so a
+  /// user whose creds.enc is corrupt learns why every key is suddenly gone.
+  void _warnUnreadable() {
+    stderr.writeln(
+      'Warning: ~/.spectra/.secure credentials exist but could not be '
+      'decrypted. Run `spectra config` to re-enter API keys.',
+    );
   }
 
   /// Runs [decrypt] and decodes the result as a JSON string map.
@@ -257,6 +286,10 @@ class SecureStorageService {
   Future<void> clear() async {
     if (_credentialsFile.existsSync()) {
       await _credentialsFile.delete();
+    }
+    final tempFile = File('${_credentialsFile.path}.tmp');
+    if (tempFile.existsSync()) {
+      await tempFile.delete();
     }
     if (_keyFile.existsSync()) {
       await _keyFile.delete();

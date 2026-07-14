@@ -127,8 +127,28 @@ IMPORTANT: Only generate code that is relevant to this codebase. Do not invent n
     }
   }
 
+  /// Releases the assigned task without completing it, e.g. when the
+  /// orchestrator recovers this worker as stuck and returns the task to the
+  /// pool. Also invalidates any still-in-flight [step] for that task (see
+  /// [_completeTask]).
+  void releaseTask() {
+    _activeTask = null;
+    currentTaskId = null;
+  }
+
   /// Completes the current task and resets worker state.
+  ///
+  /// No-ops when [taskId] is no longer the active task: an LLM call is not
+  /// cancelled by the orchestrator's step timeout, so a recovered (and
+  /// possibly reassigned) worker can see its orphaned run finish late —
+  /// that stale completion must not clobber the new assignment.
   void _completeTask(String taskId, {required bool success}) {
+    if (_activeTask?.id != taskId) {
+      logger.detail(
+        '[Agent $id] Ignoring stale completion for released Task #$taskId.',
+      );
+      return;
+    }
     if (success) {
       onTaskCompleted?.call(taskId);
     }

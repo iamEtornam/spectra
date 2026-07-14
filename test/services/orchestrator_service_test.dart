@@ -46,6 +46,9 @@ void main() {
 
       expect(worker.status, AgentStatus.idle);
       expect(worker.currentTaskId, isNull);
+      // The active task must be cleared too, so an orphaned in-flight step()
+      // completing later is recognized as stale and ignored.
+      expect(worker.activeTask, isNull);
     });
 
     test('recovers a working agent past the stuck threshold', () {

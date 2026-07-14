@@ -75,6 +75,11 @@ class Scheduler {
       <String, List<String>>{};
   final Map<String, String> _proofPathsByIssue = <String, String>{};
 
+  /// Successful runs (turns) per issue. Kept separate from the retry
+  /// `attempt` counter: failure retries and slot-contention requeues bump
+  /// `attempt` without doing work, and must not deplete the turn budget.
+  final Map<String, int> _turnsByIssue = <String, int>{};
+
   Timer? _pollTimer;
   bool _running_ = false;
   bool _shuttingDown = false;
@@ -218,6 +223,7 @@ class Scheduler {
     _changedFilesByRun.clear();
     _retryHistoryByIssue.clear();
     _proofPathsByIssue.clear();
+    _turnsByIssue.clear();
 
     if (wasRunning) {
       _record('scheduler_stopped', 'Scheduler stopped.');
@@ -532,6 +538,7 @@ class Scheduler {
     );
 
     if (succeeded) {
+      _turnsByIssue[issueId] = (_turnsByIssue[issueId] ?? 0) + 1;
       _completed.add(issueId);
       // The proof-of-work artifact for this success has already captured the
       // accumulated retry history above; release it so a long-running scheduler
@@ -603,13 +610,19 @@ class Scheduler {
     required int attempt,
   }) {
     // Continuations only run while the issue stays active in the tracker,
-    // and never past the configured turn limit.
-    if (attempt > config.agent.maxTurns) {
+    // and never past the configured turn limit. Gate on completed turns —
+    // not the retry attempt counter, which failure retries also bump.
+    final turnsDone = _turnsByIssue[issueId] ?? 0;
+    if (turnsDone >= config.agent.maxTurns) {
       _record(
         'turn_limit_reached',
         'Not continuing $identifier: agent.max_turns '
             '(${config.agent.maxTurns}) reached.',
-        data: <String, dynamic>{'issue_id': issueId, 'attempt': attempt},
+        data: <String, dynamic>{
+          'issue_id': issueId,
+          'attempt': attempt,
+          'turns': turnsDone,
+        },
       );
       return;
     }

@@ -202,7 +202,7 @@ class OrchestratorService {
         logger.warn(
           '[${agent.id}] Releasing task ${agent.currentTaskId} back to pool.',
         );
-        agent.currentTaskId = null;
+        agent.releaseTask();
       }
     }
   }
@@ -222,14 +222,19 @@ class OrchestratorService {
       // Recover agents this pass detects as stuck AND agents the Witness
       // already flipped to `stuck` earlier in the same tick — otherwise a
       // witnessed agent is never released back to idle.
+      final witnessMarked = agent.status == AgentStatus.stuck;
       final needsRecovery =
-          agent.status == AgentStatus.stuck ||
+          witnessMarked ||
           (agent.status == AgentStatus.working &&
               inactivityDuration > config.stuckThreshold);
 
       if (needsRecovery) {
+        // updateStatus(stuck) refreshes lastActivity, so the recomputed
+        // duration is meaningless for Witness-marked agents.
         logger.warn(
-          '[${agent.id}] Detected as stuck (inactive for ${inactivityDuration.inMinutes}min). Recovering...',
+          witnessMarked
+              ? '[${agent.id}] Marked stuck by Witness. Recovering...'
+              : '[${agent.id}] Detected as stuck (inactive for ${inactivityDuration.inMinutes}min). Recovering...',
         );
         agent.updateStatus(AgentStatus.stuck);
 
@@ -238,7 +243,7 @@ class OrchestratorService {
           logger.warn(
             '[${agent.id}] Releasing task ${agent.currentTaskId} for reassignment.',
           );
-          agent.currentTaskId = null;
+          agent.releaseTask();
         }
 
         // Reset to idle so it can pick up new work

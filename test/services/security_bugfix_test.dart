@@ -214,13 +214,17 @@ void main() {
         (i) => data[i] ^ key[i % key.length] ^ keyStream[i],
       );
       final credFile = File('${tempDir.path}/.spectra/.secure/creds.enc');
-      await credFile.writeAsBytes([...iv, ...encrypted]);
+      final legacyBytes = [...iv, ...encrypted];
+      await credFile.writeAsBytes(legacyBytes);
 
       final decrypted = await secureStorage.retrieve();
       expect(decrypted['gemini_key'], equals('legacy-cipher-key'));
 
-      // The fallback re-encrypts with the current cipher: a second read must
-      // still work, and the bytes on disk must have changed format.
+      // The read must have upgraded the on-disk bytes to the current cipher.
+      final upgradedBytes = await credFile.readAsBytes();
+      expect(upgradedBytes, isNot(equals(legacyBytes)));
+
+      // And a second read (now via the current cipher) still round-trips.
       final reread = await secureStorage.retrieve();
       expect(reread['gemini_key'], equals('legacy-cipher-key'));
     });

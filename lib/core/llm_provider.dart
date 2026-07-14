@@ -45,6 +45,11 @@ abstract class LLMProvider {
   /// Human-readable name of this provider (e.g., "OpenAI", "Claude").
   String get name;
 
+  /// The concrete model identifier this instance calls (e.g.,
+  /// "claude-sonnet-4-5"). Used in cache keys so different models of the
+  /// same provider never share cached responses.
+  String get model;
+
   /// List of model names available from this provider.
   List<String> get availableModels;
 

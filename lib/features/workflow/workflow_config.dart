@@ -69,6 +69,11 @@ class WorkflowConfig {
   /// Tracker kinds supported by the built-in factory.
   static const supportedTrackerKinds = <String>{'linear', 'local_plan'};
 
+  /// Runner identifiers with an implementation. `codex` is reserved for a
+  /// future Codex app-server runner and must be rejected until it exists,
+  /// not silently substituted with the LLM runner.
+  static const supportedRunners = <String>{'llm'};
+
   /// Returns dispatch-blocking validation errors.
   List<String> validateForDispatch() {
     final errors = <String>[];
@@ -93,6 +98,12 @@ class WorkflowConfig {
     }
     if (hooks.timeout.inMilliseconds <= 0) {
       errors.add('hooks.timeout_ms must be positive.');
+    }
+    if (!supportedRunners.contains(agent.runner)) {
+      errors.add(
+        'Unsupported agent.runner: ${agent.runner}. '
+        'Only "llm" is implemented ("codex" is reserved).',
+      );
     }
     if (agent.maxConcurrentAgents <= 0) {
       errors.add('agent.max_concurrent_agents must be positive.');
@@ -127,7 +138,7 @@ class WorkflowConfig {
 
 /// Issue tracker settings from workflow front matter.
 class TrackerWorkflowConfig {
-  /// Tracker kind. The first supported value is `linear`.
+  /// Tracker kind. Defaults to `local_plan`; `linear` is also supported.
   final String? kind;
 
   /// Tracker API endpoint.
@@ -160,7 +171,9 @@ class TrackerWorkflowConfig {
     Map<String, dynamic> map, {
     required Map<String, String> environment,
   }) {
-    final kind = _stringValue(map, 'kind');
+    // Defaults to local_plan so spec-driven projects work with no tracker
+    // section at all, matching the documented default.
+    final kind = _stringValue(map, 'kind') ?? 'local_plan';
     return TrackerWorkflowConfig(
       kind: kind,
       endpoint:
@@ -323,8 +336,8 @@ class AgentWorkflowConfig {
   /// Builds agent config from a map.
   factory AgentWorkflowConfig.fromMap(Map<String, dynamic> map) {
     return AgentWorkflowConfig(
-      maxConcurrentAgents: _intValue(map, 'max_concurrent_agents') ?? 10,
-      maxTurns: _intValue(map, 'max_turns') ?? 20,
+      maxConcurrentAgents: _intValue(map, 'max_concurrent_agents') ?? 2,
+      maxTurns: _intValue(map, 'max_turns') ?? 10,
       maxRetryBackoff: Duration(
         milliseconds: _intValue(map, 'max_retry_backoff_ms') ?? 300000,
       ),

@@ -103,12 +103,12 @@ Starting in v0.2 the orchestrator follows the OpenAI Symphony work-orchestration
 - **`WorkspaceManager`**: creates one `git worktree` per issue under `workspace.root` (default `.spectra/workspaces/<key>`). Sanitizes issue identifiers, runs `after_create`, `before_run`, `after_run`, and `before_remove` hooks via `bash -lc`.
 - **`AgentRunner`**: pluggable execution engine.
   - `LlmAgentRunner` (default) reuses Spectra's existing LLM providers and writes `<file_content>` blocks into the per-issue worktree.
-  - `CodexAppServerRunner` is reserved for the Codex `app-server` protocol.
+  - `CodexAppServerRunner` is **not yet implemented** — the `codex` runner name is reserved for the Codex `app-server` protocol, and setting `agent.runner: codex` is rejected at validation until it exists (only `llm` is accepted).
 - **`Scheduler`**: single-authority state machine that owns the poll loop, dispatch, retries, reconciliation, and stall detection. State lives in `running`, `claimed`, `retryAttempts`, and `completed` maps.
 
 ### Runtime Snapshot
 
-Instead of `AGENTS.json`, the new dashboard reads `RuntimeSnapshot` from the live scheduler (or `.spectra/RUNTIME.json` for cold starts). Endpoints:
+Instead of `AGENTS.json`, the new dashboard reads `RuntimeSnapshot` from the live scheduler (or `.spectra/RUNTIME.json` for cold starts). The snapshot includes a `proof_of_work` map of issue identifier → `proof.md` path for completed runs. Endpoints:
 
 - `GET /api/v1/state` — full snapshot.
 - `GET /api/v1/issue/<identifier>` — per-issue detail.
@@ -123,7 +123,7 @@ Run `spectra progress --runs` to print the same snapshot in the terminal.
 
 ### Tracker Defaults
 
-`WORKFLOW.md` ships with `tracker.kind: local_plan` so existing projects keep working out of the box. To switch to Linear:
+`tracker.kind` defaults to `local_plan` — even when the `tracker` section is omitted entirely — so existing projects keep working out of the box. To switch to Linear:
 
 ```yaml
 ---
@@ -140,4 +140,6 @@ agent:
   max_turns: 10
 ---
 ```
+
+The values shown for `max_concurrent_agents` (2) and `max_turns` (10) are also the defaults, as is a polling interval of 30000 ms — you only need to set them to change them.
 

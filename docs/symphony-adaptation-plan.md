@@ -78,11 +78,11 @@ lib/features/
   runner/
     agent_runner.dart
     llm_agent_runner.dart
-    codex_app_server_runner.dart
+    codex_app_server_runner.dart   # (planned, not yet implemented)
   orchestration/
     run_attempt.dart
     retry_entry.dart
-    orchestrator_state.dart
+    orchestrator_state.dart        # implemented as scheduler.dart + running_entry.dart + codex_totals.dart
     orchestration_event.dart
   observability/
     runtime_snapshot.dart

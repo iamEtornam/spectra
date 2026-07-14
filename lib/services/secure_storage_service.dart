@@ -6,7 +6,8 @@ import 'package:path/path.dart' as path;
 
 /// Service for securely storing and retrieving sensitive data like API keys.
 ///
-/// Uses AES-256 encryption with a machine-specific key derived from system information.
+/// Uses an XOR stream cipher with a SHA-256-derived keystream and a
+/// machine-specific key derived from system information via PBKDF2.
 /// The encryption key is generated once per machine and stored in a secure location.
 class SecureStorageService {
   static final SecureStorageService _instance =
@@ -14,10 +15,16 @@ class SecureStorageService {
   factory SecureStorageService() => _instance;
   SecureStorageService._internal();
 
+  /// Overrides the base directory used for storage (normally `$HOME`).
+  /// Intended for tests so they don't touch the real `~/.spectra`.
+  static String? homeOverride;
+
   /// Directory where secure storage files are kept.
   Directory get _secureDir {
     final home =
-        Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+        homeOverride ??
+        Platform.environment['HOME'] ??
+        Platform.environment['USERPROFILE'];
     if (home == null) {
       throw StateError(
         'Unable to determine home directory. Neither HOME nor USERPROFILE environment variables are set.',
@@ -26,8 +33,20 @@ class SecureStorageService {
     final dir = Directory(path.join(home, '.spectra', '.secure'));
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
+      _restrictPermissions(dir.path, '700');
     }
     return dir;
+  }
+
+  /// Best-effort permission tightening on POSIX systems (no-op on Windows,
+  /// where ACLs already scope the profile directory to the user).
+  void _restrictPermissions(String targetPath, String mode) {
+    if (Platform.isWindows) return;
+    try {
+      Process.runSync('chmod', [mode, targetPath]);
+    } catch (_) {
+      // chmod unavailable; the OS default umask still applies.
+    }
   }
 
   /// File containing the encrypted credentials.
@@ -71,6 +90,7 @@ class SecureStorageService {
 
     // Save the key for future use
     await _keyFile.writeAsString(base64.encode(key));
+    _restrictPermissions(_keyFile.path, '600');
 
     return key;
   }
@@ -104,10 +124,11 @@ class SecureStorageService {
     return result.sublist(0, keyLength);
   }
 
-  /// Simple XOR-based encryption with random IV.
+  /// XOR stream cipher with a SHA-256-derived keystream and random IV.
   ///
-  /// This uses XOR encryption with a key stream generated from the machine key
-  /// and a random IV (Initialization Vector) to ensure non-deterministic encryption.
+  /// The keystream is produced in counter mode: block N is
+  /// `SHA-256(key || IV || N)`, so the full 256-bit machine key feeds every
+  /// keystream byte and the random IV makes encryption non-deterministic.
   /// The IV is prepended to the ciphertext.
   ///
   /// Format: [IV (16 bytes)][Encrypted Data]
@@ -116,26 +137,14 @@ class SecureStorageService {
     final random = Random.secure();
     final iv = List.generate(16, (_) => random.nextInt(256));
 
-    // Create keystream using key + IV for non-deterministic encryption
-    final keySeed =
-        key.fold<int>(0, (a, b) => a + b) + iv.fold<int>(0, (a, b) => a + b);
-    final streamRandom = Random(keySeed);
-    final keyStream = List.generate(
-      data.length,
-      (_) => streamRandom.nextInt(256),
-    );
-
-    // Encrypt: data XOR key XOR keystream
-    final encrypted = List.generate(
-      data.length,
-      (i) => data[i] ^ key[i % key.length] ^ keyStream[i],
-    );
+    final keyStream = _keyStream(key, iv, data.length);
+    final encrypted = List.generate(data.length, (i) => data[i] ^ keyStream[i]);
 
     // Prepend IV to ciphertext
     return [...iv, ...encrypted];
   }
 
-  /// Simple XOR-based decryption.
+  /// Decrypts data produced by [_encrypt].
   ///
   /// Extracts the IV from the first 16 bytes, then decrypts the remaining data.
   List<int> _decrypt(List<int> data, List<int> key) {
@@ -143,11 +152,37 @@ class SecureStorageService {
       throw ArgumentError('Invalid encrypted data: too short');
     }
 
-    // Extract IV from first 16 bytes
     final iv = data.sublist(0, 16);
     final encrypted = data.sublist(16);
 
-    // Recreate keystream using key + IV
+    final keyStream = _keyStream(key, iv, encrypted.length);
+    return List.generate(encrypted.length, (i) => encrypted[i] ^ keyStream[i]);
+  }
+
+  /// SHA-256 counter-mode keystream: block N is SHA-256(key || iv || N).
+  List<int> _keyStream(List<int> key, List<int> iv, int length) {
+    final stream = <int>[];
+    for (var counter = 0; stream.length < length; counter++) {
+      final block = sha256.convert([
+        ...key,
+        ...iv,
+        ...utf8.encode(counter.toString()),
+      ]).bytes;
+      stream.addAll(block);
+    }
+    return stream.sublist(0, length);
+  }
+
+  /// Decrypts data written by versions <= 0.2.0, whose keystream came from
+  /// Dart's `Random` seeded with the byte-sum of key and IV.
+  List<int> _decryptLegacy(List<int> data, List<int> key) {
+    if (data.length < 16) {
+      throw ArgumentError('Invalid encrypted data: too short');
+    }
+
+    final iv = data.sublist(0, 16);
+    final encrypted = data.sublist(16);
+
     final keySeed =
         key.fold<int>(0, (a, b) => a + b) + iv.fold<int>(0, (a, b) => a + b);
     final streamRandom = Random(keySeed);
@@ -156,7 +191,6 @@ class SecureStorageService {
       (_) => streamRandom.nextInt(256),
     );
 
-    // Decrypt: encrypted XOR key XOR keystream
     return List.generate(
       encrypted.length,
       (i) => encrypted[i] ^ key[i % key.length] ^ keyStream[i],
@@ -178,27 +212,44 @@ class SecureStorageService {
     final encrypted = _encrypt(utf8.encode(jsonData), key);
 
     await _credentialsFile.writeAsBytes(encrypted);
+    _restrictPermissions(_credentialsFile.path, '600');
   }
 
   /// Retrieves securely stored data.
   ///
+  /// Falls back to the pre-0.2.1 cipher for existing files and transparently
+  /// re-encrypts them with the current scheme.
   /// Returns an empty map if no data is stored or decryption fails.
   Future<Map<String, String>> retrieve() async {
     if (!_credentialsFile.existsSync()) {
       return {};
     }
 
-    try {
-      final key = await _getMachineKey();
-      final encrypted = await _credentialsFile.readAsBytes();
-      final decrypted = _decrypt(encrypted, key);
-      final jsonData = utf8.decode(decrypted);
+    final key = await _getMachineKey();
+    final encrypted = await _credentialsFile.readAsBytes();
 
-      final decoded = json.decode(jsonData) as Map<dynamic, dynamic>;
+    final current = _tryDecode(() => _decrypt(encrypted, key));
+    if (current != null) return current;
+
+    final legacy = _tryDecode(() => _decryptLegacy(encrypted, key));
+    if (legacy != null) {
+      // Upgrade the on-disk format to the current cipher.
+      await store(legacy);
+      return legacy;
+    }
+
+    return {};
+  }
+
+  /// Runs [decrypt] and decodes the result as a JSON string map.
+  /// Returns null when decryption yields garbage (wrong cipher/key).
+  Map<String, String>? _tryDecode(List<int> Function() decrypt) {
+    try {
+      final decoded =
+          json.decode(utf8.decode(decrypt())) as Map<dynamic, dynamic>;
       return Map<String, String>.from(decoded);
-    } catch (e) {
-      // If decryption fails, return empty map
-      return {};
+    } catch (_) {
+      return null;
     }
   }
 

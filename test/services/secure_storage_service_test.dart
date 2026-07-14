@@ -1,19 +1,22 @@
 import 'dart:io';
 import 'package:test/test.dart';
 import 'package:spectra_cli/services/secure_storage_service.dart';
+import '../test_helpers.dart';
 
 void main() {
   late SecureStorageService secureStorage;
   late Directory tempDir;
 
   setUp(() {
-    secureStorage = SecureStorageService();
     tempDir = Directory.systemTemp.createTempSync('spectra_secure_test_');
+    useTestHome(tempDir.path);
+    secureStorage = SecureStorageService();
   });
 
   tearDown(() async {
-    // Cleanup
+    // Cleanup (must run before resetTestHome so it clears the temp home).
     await secureStorage.clear();
+    resetTestHome();
     if (tempDir.existsSync()) {
       tempDir.deleteSync(recursive: true);
     }

@@ -137,6 +137,7 @@ void main() {
       expect(json['recent_events'], isA<List<dynamic>>());
       expect(json['running'], isEmpty);
       expect(json['rate_limits'], isNull);
+      expect(json['proof_of_work'], isA<Map<String, String>>());
       await scheduler.stop();
     });
   });

@@ -24,6 +24,9 @@ class CachedLLMProvider implements LLMProvider {
   String get name => _delegate.name;
 
   @override
+  String get model => _delegate.model;
+
+  @override
   List<String> get availableModels => _delegate.availableModels;
 
   @override
@@ -34,8 +37,9 @@ class CachedLLMProvider implements LLMProvider {
     String prompt, {
     List<String>? context,
   }) async {
-    // Try cache first
-    final cached = _cache.get(prompt, name, context: context);
+    // Try cache first. Keyed by the concrete model, not the provider name,
+    // so e.g. two Claude models never share entries.
+    final cached = _cache.get(prompt, model, context: context);
     if (cached != null) {
       _cacheHits++;
       return cached;
@@ -46,7 +50,7 @@ class CachedLLMProvider implements LLMProvider {
     final response = await _delegate.generateResponse(prompt, context: context);
 
     // Cache the response
-    _cache.put(prompt, name, response, context: context);
+    _cache.put(prompt, model, response, context: context);
 
     return response;
   }

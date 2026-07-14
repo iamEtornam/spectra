@@ -22,6 +22,9 @@ class _StubProvider implements LLMProvider {
   String get name => 'Stub';
 
   @override
+  String get model => 'stub';
+
+  @override
   List<String> get availableModels => const <String>['stub'];
 
   @override

@@ -34,6 +34,10 @@ class RuntimeSnapshot {
   /// Workflow validation errors blocking dispatch, when any.
   final List<String> validationErrors;
 
+  /// Proof-of-work artifact path per issue identifier for completed or
+  /// reviewable runs.
+  final Map<String, String> proofOfWork;
+
   /// Creates a snapshot.
   const RuntimeSnapshot({
     required this.generatedAt,
@@ -44,6 +48,7 @@ class RuntimeSnapshot {
     required this.codexTotals,
     required this.recentEvents,
     required this.validationErrors,
+    this.proofOfWork = const <String, String>{},
     this.rateLimits,
   });
 
@@ -74,6 +79,7 @@ class RuntimeSnapshot {
           .map((e) => e.toJson())
           .toList(growable: false),
       validationErrors: scheduler.validationErrors,
+      proofOfWork: scheduler.proofPaths,
     );
   }
 
@@ -94,6 +100,7 @@ class RuntimeSnapshot {
     'rate_limits': rateLimits,
     'recent_events': recentEvents,
     'validation_errors': validationErrors,
+    'proof_of_work': proofOfWork,
   };
 
   /// Returns the snapshot encoded as pretty-printed JSON.

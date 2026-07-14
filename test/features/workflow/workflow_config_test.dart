@@ -18,7 +18,7 @@ void main() {
         environment: const <String, String>{},
       );
 
-      expect(config.tracker.kind, isNull);
+      expect(config.tracker.kind, equals('local_plan'));
       expect(config.tracker.endpoint, equals('https://api.linear.app/graphql'));
       expect(config.tracker.activeStates, equals(['Todo', 'In Progress']));
       expect(
@@ -28,8 +28,8 @@ void main() {
       expect(config.polling.interval, equals(const Duration(seconds: 30)));
       expect(config.workspace.root, endsWith('.spectra/workspaces'));
       expect(config.hooks.timeout, equals(const Duration(seconds: 60)));
-      expect(config.agent.maxConcurrentAgents, equals(10));
-      expect(config.agent.maxTurns, equals(20));
+      expect(config.agent.maxConcurrentAgents, equals(2));
+      expect(config.agent.maxTurns, equals(10));
       expect(config.codex.command, equals('codex app-server'));
     });
 
@@ -174,6 +174,29 @@ void main() {
             'code',
             WorkflowFailureCode.configValidationError,
           ),
+        ),
+      );
+    });
+
+    test('rejects unimplemented agent.runner values', () {
+      final definition = WorkflowDefinition(
+        config: const <String, dynamic>{
+          'agent': <String, dynamic>{'runner': 'codex'},
+        },
+        promptTemplate: 'Prompt',
+        path: p.join(Directory.current.path, 'WORKFLOW.md'),
+      );
+
+      final config = WorkflowConfig.fromDefinition(
+        definition,
+        environment: const <String, String>{},
+      );
+
+      expect(
+        config.validateForDispatch(),
+        contains(
+          'Unsupported agent.runner: codex. '
+          'Only "llm" is implemented ("codex" is reserved).',
         ),
       );
     });

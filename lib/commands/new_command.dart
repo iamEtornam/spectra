@@ -123,7 +123,7 @@ $description
 tracker:
   kind: local_plan
 polling:
-  interval_ms: 15000
+  interval_ms: 30000
 workspace:
   root: .spectra/workspaces
 agent:

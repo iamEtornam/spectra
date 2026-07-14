@@ -26,8 +26,8 @@ spectra config
 
 You will be prompted for API keys for:
 - Google Gemini
-- Anthropic Claude
 - OpenAI
+- Anthropic Claude
 - xAI Grok
 - DeepSeek
 

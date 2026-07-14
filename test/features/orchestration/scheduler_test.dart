@@ -408,6 +408,80 @@ void main() {
       },
     );
 
+    test('stops continuations at agent.max_turns', () async {
+      final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
+
+      final tracker = _FakeTracker(
+        candidates: <Issue>[_issue('1', state: 'In Progress')],
+      );
+      final runner = _FakeRunner(<RunnerEvent>[
+        SessionStarted(sessionId: 's-1'),
+        TurnStarted(turnNumber: 1),
+        TurnCompleted(turnNumber: 1, changedFiles: const <String>[]),
+        RunFinished(succeeded: true, turns: 1),
+      ]);
+      final scheduler = Scheduler(
+        config: _buildConfig(maxTurns: 1),
+        tracker: tracker,
+        workspaceManager: _FakeWorkspaceManager(tempDir),
+        runner: runner,
+        promptBuilder: (issue, attempt) => 'prompt',
+        logger: Logger(level: Level.quiet),
+        runsRoot: p.join(tempDir.path, 'runs'),
+        writeProofOfWork: false,
+      );
+      addTearDown(scheduler.stop);
+
+      await scheduler.tick();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Attempt 2 would exceed max_turns=1: no continuation may be queued.
+      expect(scheduler.retryAttempts, isEmpty);
+      expect(
+        scheduler.recentEvents.map((e) => e.name),
+        contains('turn_limit_reached'),
+      );
+    });
+
+    test('schedules a continuation while under agent.max_turns', () async {
+      final tempDir = Directory.systemTemp.createTempSync('spectra_sched_');
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
+
+      final tracker = _FakeTracker(
+        candidates: <Issue>[_issue('1', state: 'In Progress')],
+      );
+      final runner = _FakeRunner(<RunnerEvent>[
+        SessionStarted(sessionId: 's-1'),
+        TurnStarted(turnNumber: 1),
+        TurnCompleted(turnNumber: 1, changedFiles: const <String>[]),
+        RunFinished(succeeded: true, turns: 1),
+      ]);
+      final scheduler = Scheduler(
+        config: _buildConfig(maxTurns: 3),
+        tracker: tracker,
+        workspaceManager: _FakeWorkspaceManager(tempDir),
+        runner: runner,
+        promptBuilder: (issue, attempt) => 'prompt',
+        logger: Logger(level: Level.quiet),
+        runsRoot: p.join(tempDir.path, 'runs'),
+        writeProofOfWork: false,
+      );
+      addTearDown(scheduler.stop);
+
+      await scheduler.tick();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(
+        scheduler.recentEvents.map((e) => e.name),
+        contains('continuation_scheduled'),
+      );
+    });
+
     test('stop() clears all bookkeeping maps', () async {
       // Defense-in-depth check for the leak fix: even if no run ever
       // reaches the success path, scheduler.stop() must release everything.

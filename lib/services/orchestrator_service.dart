@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:mason_logger/mason_logger.dart';
+import 'package:meta/meta.dart';
 
 import '../agents/base_agent.dart';
 import '../agents/mayor_agent.dart';
@@ -142,7 +143,7 @@ class OrchestratorService {
         await _executeAgentSteps();
 
         if (config.enableStuckRecovery) {
-          _recoverStuckAgents();
+          recoverStuckAgents();
         }
 
         _persistAgentStatus();
@@ -207,7 +208,10 @@ class OrchestratorService {
   }
 
   /// Recovers agents that have been stuck for too long.
-  void _recoverStuckAgents() {
+  ///
+  /// Called from the run loop each tick; visible for testing.
+  @visibleForTesting
+  void recoverStuckAgents() {
     final now = DateTime.now();
 
     for (final agent in _agents) {
@@ -215,8 +219,15 @@ class OrchestratorService {
 
       final inactivityDuration = now.difference(agent.lastActivity);
 
-      if (agent.status == AgentStatus.working &&
-          inactivityDuration > config.stuckThreshold) {
+      // Recover agents this pass detects as stuck AND agents the Witness
+      // already flipped to `stuck` earlier in the same tick — otherwise a
+      // witnessed agent is never released back to idle.
+      final needsRecovery =
+          agent.status == AgentStatus.stuck ||
+          (agent.status == AgentStatus.working &&
+              inactivityDuration > config.stuckThreshold);
+
+      if (needsRecovery) {
         logger.warn(
           '[${agent.id}] Detected as stuck (inactive for ${inactivityDuration.inMinutes}min). Recovering...',
         );
@@ -406,6 +417,10 @@ class OrchestratorService {
 
   /// Gets all registered agents.
   List<SpectraAgent> getAllAgents() => List.unmodifiable(_agents);
+
+  /// Registers an agent directly, bypassing [start]. Test seam only.
+  @visibleForTesting
+  void addAgent(SpectraAgent agent) => _agents.add(agent);
 
   /// Gets agents filtered by role.
   List<SpectraAgent> getAgentsByRole(AgentRole role) {

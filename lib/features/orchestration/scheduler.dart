@@ -73,6 +73,7 @@ class Scheduler {
   final Map<String, List<String>> _changedFilesByRun = <String, List<String>>{};
   final Map<String, List<String>> _retryHistoryByIssue =
       <String, List<String>>{};
+  final Map<String, String> _proofPathsByIssue = <String, String>{};
 
   Timer? _pollTimer;
   bool _running_ = false;
@@ -152,6 +153,11 @@ class Scheduler {
   /// Issue ids that completed at least once (bookkeeping only).
   Set<String> get completed => Set<String>.unmodifiable(_completed);
 
+  /// Proof-of-work artifact path per issue identifier, for completed or
+  /// reviewable runs.
+  Map<String, String> get proofPaths =>
+      Map<String, String>.unmodifiable(_proofPathsByIssue);
+
   /// Aggregate token + runtime totals.
   CodexTotals get totals => _totals;
 
@@ -211,6 +217,7 @@ class Scheduler {
     _claimed.clear();
     _changedFilesByRun.clear();
     _retryHistoryByIssue.clear();
+    _proofPathsByIssue.clear();
 
     if (wasRunning) {
       _record('scheduler_stopped', 'Scheduler stopped.');
@@ -579,6 +586,7 @@ class Scheduler {
     );
     try {
       final path = await proof.persist(runsRoot: runsRoot);
+      _proofPathsByIssue[entry.issue.identifier] = path;
       _record(
         'proof_written',
         'Proof of work written for ${entry.issue.identifier}: $path',
@@ -594,6 +602,17 @@ class Scheduler {
     required String identifier,
     required int attempt,
   }) {
+    // Continuations only run while the issue stays active in the tracker,
+    // and never past the configured turn limit.
+    if (attempt > config.agent.maxTurns) {
+      _record(
+        'turn_limit_reached',
+        'Not continuing $identifier: agent.max_turns '
+            '(${config.agent.maxTurns}) reached.',
+        data: <String, dynamic>{'issue_id': issueId, 'attempt': attempt},
+      );
+      return;
+    }
     _retryAttempts[issueId]?.timer?.cancel();
     final dueAt = DateTime.now().add(const Duration(seconds: 1));
     final timer = Timer(const Duration(seconds: 1), () {

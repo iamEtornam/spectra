@@ -18,6 +18,9 @@ class GrokProvider implements LLMProvider {
 
   final String apiKey;
   final String modelName;
+
+  @override
+  String get model => modelName;
   final Duration timeout;
 
   /// Creates a new Grok provider.

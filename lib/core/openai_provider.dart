@@ -18,6 +18,9 @@ class OpenAIProvider implements LLMProvider {
 
   final String apiKey;
   final String modelName;
+
+  @override
+  String get model => modelName;
   final Duration timeout;
 
   /// Creates a new OpenAI provider.

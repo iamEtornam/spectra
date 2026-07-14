@@ -4,6 +4,7 @@ import 'package:spectra_cli/services/llm_service.dart';
 import 'package:spectra_cli/services/config_service.dart';
 import 'package:spectra_cli/models/spectra_config.dart';
 import 'package:spectra_cli/models/llm_usage_type.dart';
+import '../test_helpers.dart';
 
 void main() {
   late LLMService llmService;
@@ -11,13 +12,16 @@ void main() {
   late Directory tempDir;
 
   setUp(() {
+    tempDir = Directory.systemTemp.createTempSync('spectra_llm_service_test_');
+    useTestHome(tempDir.path);
     llmService = LLMService(enableCaching: false);
     configService = ConfigService();
-    tempDir = Directory.systemTemp.createTempSync('spectra_llm_service_test_');
   });
 
   tearDown(() async {
+    // clearConfig must run before resetTestHome so it clears the temp home.
     await configService.clearConfig();
+    resetTestHome();
     if (tempDir.existsSync()) {
       tempDir.deleteSync(recursive: true);
     }

@@ -4,14 +4,19 @@ import 'package:spectra_cli/services/config_service.dart';
 import 'package:spectra_cli/models/spectra_config.dart';
 import 'package:spectra_cli/models/task.dart';
 import 'package:spectra_cli/models/agent.dart';
+import '../test_helpers.dart';
 
 /// End-to-end workflow tests that simulate complete user workflows.
 void main() {
   late ConfigService configService;
   late Directory tempProjectDir;
+  late Directory tempHomeDir;
   late Directory originalCwd;
 
   setUp(() {
+    tempHomeDir = Directory.systemTemp.createTempSync('spectra_e2e_home_');
+    useTestHome(tempHomeDir.path);
+
     configService = ConfigService();
     tempProjectDir = Directory.systemTemp.createTempSync('spectra_e2e_test_');
     originalCwd = Directory.current;
@@ -24,10 +29,15 @@ void main() {
     // Restore original directory
     Directory.current = originalCwd;
 
-    // Cleanup
+    // Cleanup (clearConfig must run before resetTestHome so it clears the
+    // temp home, not the real one).
     await configService.clearConfig();
+    resetTestHome();
     if (tempProjectDir.existsSync()) {
       tempProjectDir.deleteSync(recursive: true);
+    }
+    if (tempHomeDir.existsSync()) {
+      tempHomeDir.deleteSync(recursive: true);
     }
   });
 
@@ -393,21 +403,30 @@ class ConfigService {
     });
 
     group('Configuration Migration Workflow', () {
-      test(
-        'should migrate from YAML to encrypted storage',
-        () async {
-          // ConfigService resolves the legacy YAML location from $HOME, not
-          // from the current working directory. The shared singleton state
-          // makes this assertion order-dependent and the migration target a
-          // moving target across test runs. Skipping until ConfigService is
-          // refactored to honor an injected base directory.
-        },
-        skip:
-            'Pre-existing CI failure unrelated to Symphony adaptation: '
-            'ConfigService._legacyConfigFile resolves from \$HOME, not the '
-            'temp test cwd, so the migration lookup never finds the YAML this '
-            'test writes. Tracked separately.',
-      );
+      test('should migrate from YAML to encrypted storage', () async {
+        // Legacy plain-text config in the (temp) home directory.
+        final legacyFile = File('${tempHomeDir.path}/.spectra/config.yaml');
+        legacyFile.parent.createSync(recursive: true);
+        legacyFile.writeAsStringSync('''
+gemini_key: "legacy-gemini-key"
+preferred_provider: "gemini"
+''');
+
+        // Loading config triggers the automatic migration.
+        final config = await configService.loadConfig();
+
+        expect(config.geminiKey, equals('legacy-gemini-key'));
+        expect(config.preferredProvider, equals('gemini'));
+        // Legacy file is deleted and the data now lives encrypted.
+        expect(legacyFile.existsSync(), isFalse);
+        final credsFile = File(
+          '${tempHomeDir.path}/.spectra/.secure/creds.enc',
+        );
+        expect(credsFile.existsSync(), isTrue);
+        // The key must not appear as plaintext in the encrypted file.
+        final rawBytes = String.fromCharCodes(credsFile.readAsBytesSync());
+        expect(rawBytes.contains('legacy-gemini-key'), isFalse);
+      });
     });
   });
 }

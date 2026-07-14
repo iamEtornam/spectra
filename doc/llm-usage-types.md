@@ -279,7 +279,7 @@ final codingProvider = await llmService.getProviderForUsage(
   LLMUsageType.coding,
 );
 
-// Use appropriate provider for task
+// Use appropriate provider for task (optional {List<String>? context} parameter)
 final response = await planningProvider.generateResponse(prompt);
 ```
 

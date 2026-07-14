@@ -20,13 +20,19 @@ class LLMService {
   LLMCache? _cache;
   final bool _cachingEnabled;
 
+  /// Overrides the base directory used for the cache file (normally `$HOME`).
+  /// Intended for tests so they don't touch the real `~/.spectra`.
+  static String? homeOverride;
+
   /// Creates a new LLM service.
   ///
   /// [enableCaching] - Whether to enable response caching (default: true).
   LLMService({bool enableCaching = true}) : _cachingEnabled = enableCaching {
     if (_cachingEnabled) {
       final home =
-          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+          homeOverride ??
+          Platform.environment['HOME'] ??
+          Platform.environment['USERPROFILE'];
       if (home == null) {
         throw StateError(
           'Unable to determine home directory. Neither HOME nor USERPROFILE environment variables are set.',

@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:test/test.dart';
 import 'package:spectra_cli/services/secure_storage_service.dart';
+import '../test_helpers.dart';
 
 /// Tests for security bug fixes in v0.1.5
 void main() {
@@ -38,12 +41,15 @@ void main() {
     late Directory tempDir;
 
     setUp(() {
-      secureStorage = SecureStorageService();
       tempDir = Directory.systemTemp.createTempSync('spectra_bugfix_test_');
+      useTestHome(tempDir.path);
+      secureStorage = SecureStorageService();
     });
 
     tearDown(() async {
+      // clear() must run before resetTestHome so it clears the temp home.
       await secureStorage.clear();
+      resetTestHome();
       if (tempDir.existsSync()) {
         tempDir.deleteSync(recursive: true);
       }
@@ -56,10 +62,7 @@ void main() {
 
         // Encrypt the same data twice
         await secureStorage.store(testData);
-        final home =
-            Platform.environment['HOME'] ??
-            Platform.environment['USERPROFILE']!;
-        final credFile = File('$home/.spectra/.secure/creds.enc');
+        final credFile = File('${tempDir.path}/.spectra/.secure/creds.enc');
         final encrypted1 = await credFile.readAsBytes();
 
         await secureStorage.clear();
@@ -80,9 +83,7 @@ void main() {
 
     test('should encrypt with random IV each time', () async {
       final testData = {'key': 'value'};
-      final home =
-          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE']!;
-      final credFile = File('$home/.spectra/.secure/creds.enc');
+      final credFile = File('${tempDir.path}/.spectra/.secure/creds.enc');
       final ciphertexts = <List<int>>[];
 
       // Encrypt same data 5 times
@@ -107,9 +108,7 @@ void main() {
 
     test('IV should be included in encrypted output', () async {
       final testData = {'key': 'value'};
-      final home =
-          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE']!;
-      final credFile = File('$home/.spectra/.secure/creds.enc');
+      final credFile = File('${tempDir.path}/.spectra/.secure/creds.enc');
 
       await secureStorage.store(testData);
       final encrypted = await credFile.readAsBytes();
@@ -164,9 +163,7 @@ void main() {
 
     test('corrupted ciphertext should fail decryption', () async {
       final testData = {'key': 'value'};
-      final home =
-          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE']!;
-      final credFile = File('$home/.spectra/.secure/creds.enc');
+      final credFile = File('${tempDir.path}/.spectra/.secure/creds.enc');
 
       await secureStorage.store(testData);
 
@@ -182,9 +179,7 @@ void main() {
 
     test('too short data should fail decryption', () async {
       final testData = {'key': 'value'};
-      final home =
-          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE']!;
-      final credFile = File('$home/.spectra/.secure/creds.enc');
+      final credFile = File('${tempDir.path}/.spectra/.secure/creds.enc');
 
       await secureStorage.store(testData);
 
@@ -194,6 +189,40 @@ void main() {
       // Should return empty map on decryption failure
       final decrypted = await secureStorage.retrieve();
       expect(decrypted, isEmpty);
+    });
+
+    test('reads creds.enc written by the pre-0.2.1 legacy cipher', () async {
+      // Force key creation, then hand-craft a legacy-format file using the
+      // same algorithm versions <= 0.2.0 used: keystream from Dart's Random
+      // seeded with the byte-sum of key and IV, XORed with the machine key.
+      await secureStorage.store({'seed': 'x'});
+      final keyFile = File('${tempDir.path}/.spectra/.secure/.key');
+      final key = base64.decode(keyFile.readAsStringSync());
+
+      const plaintext = '{"gemini_key":"legacy-cipher-key"}';
+      final data = utf8.encode(plaintext);
+      final iv = List<int>.generate(16, (i) => i * 7 % 256);
+      final keySeed =
+          key.fold<int>(0, (a, b) => a + b) + iv.fold<int>(0, (a, b) => a + b);
+      final streamRandom = Random(keySeed);
+      final keyStream = List<int>.generate(
+        data.length,
+        (_) => streamRandom.nextInt(256),
+      );
+      final encrypted = List<int>.generate(
+        data.length,
+        (i) => data[i] ^ key[i % key.length] ^ keyStream[i],
+      );
+      final credFile = File('${tempDir.path}/.spectra/.secure/creds.enc');
+      await credFile.writeAsBytes([...iv, ...encrypted]);
+
+      final decrypted = await secureStorage.retrieve();
+      expect(decrypted['gemini_key'], equals('legacy-cipher-key'));
+
+      // The fallback re-encrypts with the current cipher: a second read must
+      // still work, and the bytes on disk must have changed format.
+      final reread = await secureStorage.retrieve();
+      expect(reread['gemini_key'], equals('legacy-cipher-key'));
     });
   });
 }

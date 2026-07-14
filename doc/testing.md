@@ -10,17 +10,45 @@ test/
 │   └── worker_agent_test.dart
 ├── commands/                    # Command integration tests
 │   ├── config_command_test.dart
+│   ├── execute_command_test.dart
 │   ├── map_command_test.dart
 │   └── plan_command_test.dart
 ├── e2e/                        # End-to-end workflow tests
 │   └── workflow_test.dart
+├── features/                   # Symphony-aligned feature tests
+│   ├── observability/
+│   │   └── runtime_snapshot_test.dart
+│   ├── orchestration/
+│   │   └── scheduler_test.dart
+│   ├── runner/
+│   │   ├── llm_agent_runner_test.dart
+│   │   └── prompt_renderer_test.dart
+│   ├── tracker/
+│   │   ├── issue_test.dart
+│   │   ├── linear_real_integration_test.dart
+│   │   ├── linear_tracker_client_test.dart
+│   │   ├── local_plan_tracker_client_test.dart
+│   │   └── tracker_factory_test.dart
+│   ├── workflow/
+│   │   ├── workflow_config_test.dart
+│   │   ├── workflow_loader_test.dart
+│   │   └── workflow_watcher_test.dart
+│   └── workspaces/
+│       ├── workspace_hooks_test.dart
+│       └── workspace_manager_test.dart
 ├── models/                     # Model and data structure tests
 │   ├── agent_test.dart
+│   ├── execution_mode_test.dart
+│   ├── llm_usage_type_test.dart
 │   ├── spectra_config_test.dart
 │   └── task_test.dart
 ├── services/                   # Service layer tests
+│   ├── additional_bugfix_test.dart
 │   ├── config_service_test.dart
-│   └── secure_storage_service_test.dart
+│   ├── llm_service_test.dart
+│   ├── orchestrator_service_test.dart
+│   ├── secure_storage_service_test.dart
+│   └── security_bugfix_test.dart
 ├── utils/                      # Utility function tests
 │   └── state_manager_test.dart
 └── test_helpers.dart          # Shared test utilities and mocks
@@ -144,13 +172,32 @@ class MockLogger extends Mock implements Logger {}
 // LLM provider mock for testing AI interactions
 class MockLLMProvider extends Mock implements LLMProvider {}
 
+// Service mocks
+class MockLLMService extends Mock implements LLMService {}
+class MockConfigService extends Mock implements ConfigService {}
+
 // Fake LLM provider with predictable responses
 class FakeLLMProvider implements LLMProvider {
-  final String response;
-  FakeLLMProvider({required this.response});
-  
+  final String _name;
+  final String _response;
+
+  FakeLLMProvider({
+    String name = 'FakeProvider',
+    String response = 'Fake response',
+  }) : _name = name,
+       _response = response;
+
   @override
-  Future<String> generateResponse(String prompt) async => response;
+  String get name => _name;
+
+  @override
+  String get model => 'fake-model-1';
+
+  @override
+  Future<String> generateResponse(
+    String prompt, {
+    List<String>? context,
+  }) async => _response;
 }
 ```
 
@@ -167,15 +214,19 @@ final config = createTestConfig(
 registerFallbackValue('');
 ```
 
+Tests call `useTestHome(dir)` in `setUp` (and `resetTestHome()` in `tearDown`) to point every home-directory-based service at an isolated temp directory, so the suite never touches your real `~/.spectra`.
+
 ## Test Coverage Targets
 
-| Category | Target | Current Status |
-|----------|--------|---------------|
-| Models | 90%+ | ✓ 95% |
-| Services | 85%+ | ✓ 88% |
-| Commands | 75%+ | ✓ 78% |
-| Agents | 80%+ | ✓ 82% |
-| Overall | 80%+ | ✓ 85% |
+| Category | Target |
+|----------|--------|
+| Models | 90%+ |
+| Services | 85%+ |
+| Commands | 75%+ |
+| Agents | 80%+ |
+| Overall | 80%+ |
+
+Actual coverage is reported per run via Codecov (see Continuous Integration below).
 
 ## Testing Best Practices
 
@@ -318,21 +369,20 @@ test('should load config in under 100ms', () async {
 
 ### GitHub Actions Workflow
 
-```yaml
-name: Tests
+CI (`.github/workflows/test.yml`) runs on pushes and pull requests to `main` and `develop`, in two jobs:
 
-on: [push, pull_request]
+**Test job:**
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dart-lang/setup-dart@v1
-      - run: dart pub get
-      - run: dart test
-      - run: dart analyze
-```
+- `actions/checkout@v4` + `dart-lang/setup-dart@v1` (stable SDK), then `dart pub get`
+- `dart format --output=none --set-exit-if-changed .` (formatting check)
+- `dart analyze --fatal-infos`
+- Test suites run **per-suite** (models, services, agents, utils, commands, e2e, features) rather than as one `dart test` invocation — several suites share `ConfigService`/`SecureStorageService` singletons, and running them in one VM causes state-bleed races that don't occur in production
+- Coverage is generated per suite the same way, merged with `format_coverage` into `coverage/lcov.info`, and uploaded to Codecov
+
+**Security-audit job:**
+
+- `dart pub outdated` (non-failing) to surface stale dependencies
+- A regex scan of `lib/` for real-looking API key shapes (OpenAI `sk-...` and Google `AIza...` patterns), failing the build if any are found
 
 ## Contributing Tests
 

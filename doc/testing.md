@@ -216,6 +216,8 @@ registerFallbackValue('');
 
 Tests call `useTestHome(dir)` in `setUp` (and `resetTestHome()` in `tearDown`) to point every home-directory-based service at an isolated temp directory, so the suite never touches your real `~/.spectra`.
 
+Suites run one at a time (`dart_test.yaml` sets `concurrency: 1`): several command and e2e suites change the process-global working directory, which races when suite isolates run in parallel.
+
 ## Test Coverage Targets
 
 | Category | Target |

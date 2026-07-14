@@ -45,9 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workspace hook output is no longer truncated/dropped when a hook exits
   quickly: streams are drained to completion instead of cancelled on
   exit.
-- Test suite runs against an isolated temp home (`useTestHome`) and is
-  parallel-safe; the legacy-YAML migration tests are fixed and the
-  previously skipped e2e migration test is implemented.
+- Test suite runs against an isolated temp home (`useTestHome`) instead
+  of the real `~/.spectra`; suites run serially (`dart_test.yaml`
+  `concurrency: 1`) because several command/e2e suites mutate the
+  process-global working directory. The legacy-YAML migration tests are
+  fixed and the previously skipped e2e migration test is implemented.
 
 ### Added — Symphony work-orchestration model
 

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:interact/interact.dart';
 import 'package:spectra_cli/core/llm_provider.dart';
 import 'package:spectra_cli/models/execution_mode.dart';
 import 'package:spectra_cli/models/llm_usage_type.dart';
@@ -9,6 +10,10 @@ import 'package:spectra_cli/utils/state_manager.dart';
 import 'package:xml/xml.dart';
 
 import 'base_command.dart';
+
+/// User decision for a single AI-suggested file in interactive mode.
+/// Order matches the Select options in [_reviewSuggestion].
+enum _ReviewAction { apply, edit, skip, quit }
 
 class ExecuteCommand extends SpectraCommand {
   @override
@@ -48,10 +53,27 @@ class ExecuteCommand extends SpectraCommand {
     }
 
     final content = planFile.readAsStringSync();
-    final taskDocs = _parseTasks(content);
+    final allTasks = _parseTasks(content);
 
-    if (taskDocs.isEmpty) {
+    if (allTasks.isEmpty) {
       logger.warn('No tasks found in PLAN.md.');
+      return;
+    }
+
+    // Tasks already marked completed (by a previous run) are not re-executed,
+    // so `execute` is idempotent and `resume` continues where it left off.
+    final taskDocs = allTasks
+        .where((d) => d.rootElement.getAttribute('status') != 'completed')
+        .toList();
+    final alreadyDone = allTasks.length - taskDocs.length;
+    if (alreadyDone > 0) {
+      logger.detail('Skipping $alreadyDone already-completed task(s).');
+    }
+    if (taskDocs.isEmpty) {
+      logger.success(
+        'All ${allTasks.length} tasks in PLAN.md are already '
+        'completed. Nothing to execute.',
+      );
       return;
     }
 
@@ -86,12 +108,22 @@ class ExecuteCommand extends SpectraCommand {
       return;
     }
 
+    final interactive = mode == ExecutionMode.interactive;
     logger.info(
-      'Executing ${taskDocs.length} tasks using ${provider.name} (Code Generation)...',
+      'Executing ${taskDocs.length} tasks using ${provider.name} '
+      '(${interactive ? 'Interactive Review' : 'Code Generation'})...',
     );
 
     for (final taskDoc in taskDocs) {
-      await _executeTask(taskDoc, provider);
+      final keepGoing = await _executeTask(
+        taskDoc,
+        provider,
+        interactive: interactive,
+      );
+      if (!keepGoing) {
+        logger.info('Execution stopped by user.');
+        return;
+      }
     }
 
     // Prune state if it gets too large
@@ -106,7 +138,13 @@ class ExecuteCommand extends SpectraCommand {
     return matches.map((m) => XmlDocument.parse(m.group(0)!)).toList();
   }
 
-  Future<void> _executeTask(XmlDocument taskDoc, LLMProvider provider) async {
+  /// Executes a single task. Returns false when the user chose to quit
+  /// during an interactive review.
+  Future<bool> _executeTask(
+    XmlDocument taskDoc,
+    LLMProvider provider, {
+    bool interactive = false,
+  }) async {
     final taskElement = taskDoc.rootElement;
     final id = taskElement.getAttribute('id');
     final name = taskElement.findElements('n').first.innerText;
@@ -143,17 +181,35 @@ void main() {}
 
       if (fileContents.isEmpty) {
         logger.warn('No file contents generated for Task #$id');
-        return;
+        return true;
       }
 
+      var appliedAny = false;
       for (final path in fileContents.keys) {
-        final content = fileContents[path]!;
+        var content = fileContents[path]!;
+
+        if (interactive) {
+          final (action, reviewed) = await _reviewInteractively(path, content);
+          if (action == _ReviewAction.quit) return false;
+          if (action == _ReviewAction.skip) {
+            logger.detail('Skipped $path');
+            continue;
+          }
+          content = reviewed;
+        }
+
         final file = File(path);
         if (!file.parent.existsSync()) {
           file.parent.createSync(recursive: true);
         }
         file.writeAsStringSync(content);
-        logger.detail('Updated $path');
+        appliedAny = true;
+        logger.success('✅ File written: $path');
+      }
+
+      if (!appliedAny) {
+        logger.info('No files applied for Task #$id; skipping commit.');
+        return true;
       }
 
       // Update PLAN.md state
@@ -162,12 +218,121 @@ void main() {}
       // Update STATE.md
       _updateProjectState(name, objective);
 
+      if (interactive) {
+        return _promptCommit(acceptance);
+      }
+
       // Real Git Commit
       logger.info('Committing changes: $acceptance');
       _commitChanges(acceptance);
     } catch (e) {
       logger.err('Error executing Task #$id: $e');
     }
+    return true;
+  }
+
+  /// Runs the review menu until the user lands on a final decision.
+  ///
+  /// A failed editor launch re-shows the menu instead of silently applying
+  /// the unedited suggestion — the user picked Edit precisely because they
+  /// did not want it as-is.
+  Future<(_ReviewAction, String)> _reviewInteractively(
+    String path,
+    String content,
+  ) async {
+    while (true) {
+      final action = _reviewSuggestion(path, content);
+      if (action != _ReviewAction.edit) return (action, content);
+
+      final edited = await _editSuggestion(path, content);
+      if (edited == null) {
+        logger.warn('Edit failed — nothing was applied. Choose again.');
+        continue;
+      }
+      return (_ReviewAction.apply, edited);
+    }
+  }
+
+  /// Shows a generated file and asks the user what to do with it.
+  _ReviewAction _reviewSuggestion(String path, String content) {
+    logger.info('─' * 60);
+    logger.info('AI suggests for $path:');
+    logger.info('─' * 60);
+    logger.write('$content\n');
+    logger.info('─' * 60);
+
+    final choice = Select(
+      prompt: 'Apply suggestion for $path?',
+      options: const [
+        '[A] Apply as-is',
+        '[E] Edit suggestion',
+        '[S] Skip',
+        '[Q] Quit',
+      ],
+    ).interact();
+
+    return _ReviewAction.values[choice];
+  }
+
+  /// Opens the suggestion in $EDITOR and returns the edited content, or
+  /// null if the editor failed (caller keeps the original suggestion).
+  Future<String?> _editSuggestion(String path, String content) async {
+    final tempDir = Directory.systemTemp.createTempSync('spectra_edit_');
+    final tempFile = File(
+      '${tempDir.path}/${path.split(Platform.pathSeparator).last.split('/').last}',
+    );
+    tempFile.writeAsStringSync(content);
+
+    // $EDITOR may carry arguments ("code --wait", "vim -u NONE") — split
+    // into executable + args or Process.start treats it as one binary name.
+    final editor =
+        (Platform.environment['EDITOR'] ??
+                Platform.environment['VISUAL'] ??
+                (Platform.isWindows ? 'notepad' : 'vi'))
+            .trim();
+    final editorParts = editor.split(RegExp(r'\s+'));
+
+    try {
+      final process = await Process.start(
+        editorParts.first,
+        [...editorParts.skip(1), tempFile.path],
+        mode: ProcessStartMode.inheritStdio,
+        runInShell: true,
+      );
+      final exitCode = await process.exitCode;
+      if (exitCode != 0) {
+        logger.warn('Editor exited with code $exitCode; keeping suggestion.');
+        return null;
+      }
+      return tempFile.readAsStringSync();
+    } catch (e) {
+      logger.warn('Failed to launch editor "$editor": $e');
+      return null;
+    } finally {
+      tempDir.deleteSync(recursive: true);
+    }
+  }
+
+  /// Interactive commit prompt. Returns false when the user chose to quit.
+  bool _promptCommit(String message) {
+    final choice = Select(
+      prompt: 'Commit message: "$message"',
+      options: const ['[Y] Commit now', '[N] Skip commit', '[E] Edit message'],
+    ).interact();
+
+    switch (choice) {
+      case 0:
+        _commitChanges(message);
+      case 1:
+        logger.detail('Skipped commit.');
+      case 2:
+        final edited = Input(
+          prompt: 'Commit message',
+          defaultValue: message,
+        ).interact();
+        _commitChanges(edited.trim().isEmpty ? message : edited);
+    }
+    return true;
   }
 
   String _getFileContext(List<String> paths) {

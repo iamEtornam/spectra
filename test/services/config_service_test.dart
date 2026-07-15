@@ -3,6 +3,7 @@ import 'package:test/test.dart';
 import 'package:spectra_cli/services/config_service.dart';
 import 'package:spectra_cli/services/secure_storage_service.dart';
 import 'package:spectra_cli/models/spectra_config.dart';
+import '../test_helpers.dart';
 
 void main() {
   late ConfigService configService;
@@ -10,14 +11,16 @@ void main() {
   late Directory tempDir;
 
   setUp(() {
+    tempDir = Directory.systemTemp.createTempSync('spectra_config_test_');
+    useTestHome(tempDir.path);
     configService = ConfigService();
     secureStorage = SecureStorageService();
-    tempDir = Directory.systemTemp.createTempSync('spectra_config_test_');
   });
 
   tearDown(() async {
-    // Cleanup
+    // Cleanup (must run before resetTestHome so it clears the temp home).
     await configService.clearConfig();
+    resetTestHome();
     if (tempDir.existsSync()) {
       tempDir.deleteSync(recursive: true);
     }

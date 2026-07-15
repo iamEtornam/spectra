@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,34 +9,68 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
 import '../dashboard/dashboard_page.dart';
+import '../features/observability/runtime_snapshot.dart';
+import '../features/orchestration/scheduler.dart';
 import '../models/agent.dart';
 
-/// Service that runs a local web dashboard for monitoring agents.
+/// Service that runs a local web dashboard for monitoring runs.
 ///
-/// Uses Jaspr for server-side component rendering with shelf for HTTP handling.
-/// See: https://docs.jaspr.site/going_further/backend
+/// Symphony refactor: the dashboard is run-first. State comes from a
+/// [RuntimeSnapshot] (live when a [Scheduler] is supplied, otherwise read from
+/// the persisted `.spectra/RUNTIME.json` snapshot). The legacy `AGENTS.json`
+/// view stays available for one release as a compatibility shim.
 class DashboardService {
+  /// Logger for status messages.
   final Logger logger;
+
+  /// HTTP port (overridable from CLI).
   final int port;
+
+  /// Optional live scheduler reference. When set, the snapshot is generated on
+  /// demand from in-memory state.
+  Scheduler? _scheduler;
+
+  /// Path to the persisted runtime snapshot, used as a fallback.
+  final String runtimePath;
+
+  /// Path to the legacy agents file kept for one release.
+  final String legacyAgentsPath;
+
   HttpServer? _server;
 
-  DashboardService({required this.logger, this.port = 3000});
+  /// Creates a dashboard service.
+  DashboardService({
+    required this.logger,
+    this.port = 3000,
+    Scheduler? scheduler,
+    this.runtimePath = '.spectra/RUNTIME.json',
+    this.legacyAgentsPath = '.spectra/AGENTS.json',
+  }) : _scheduler = scheduler;
+
+  /// Attaches a live [Scheduler] so the dashboard can render in-memory state
+  /// instead of relying on the persisted snapshot file.
+  // ignore: use_setters_to_change_properties
+  void attachScheduler(Scheduler scheduler) {
+    _scheduler = scheduler;
+  }
+
+  /// Detaches the current live scheduler.
+  void detachScheduler() {
+    _scheduler = null;
+  }
 
   /// Starts the dashboard HTTP server.
   Future<void> start() async {
-    // Initialize Jaspr before using renderComponent
     Jaspr.initializeApp();
 
-    final router = Router();
+    final router = Router()
+      ..get('/api/agents', _handleAgentsApi)
+      ..get('/api/project', _handleProjectApi)
+      ..get('/api/v1/state', _handleV1State)
+      ..get('/api/v1/issue/<identifier>', _handleV1Issue)
+      ..post('/api/v1/refresh', _handleV1Refresh)
+      ..get('/', _handleDashboard);
 
-    // API endpoints
-    router.get('/api/agents', _handleAgentsApi);
-    router.get('/api/project', _handleProjectApi);
-
-    // Serve the Jaspr-rendered dashboard
-    router.get('/', _handleDashboard);
-
-    // Add CORS and logging middleware
     final handler = const shelf.Pipeline()
         .addMiddleware(_corsMiddleware())
         .addMiddleware(
@@ -62,13 +97,12 @@ class DashboardService {
     logger.info('Dashboard stopped.');
   }
 
-  /// CORS middleware for browser requests.
   shelf.Middleware _corsMiddleware() {
     return (shelf.Handler innerHandler) {
       return (shelf.Request request) async {
         final response = await innerHandler(request);
         return response.change(
-          headers: {
+          headers: <String, Object>{
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type',
@@ -78,13 +112,137 @@ class DashboardService {
     };
   }
 
-  /// Handles the /api/agents endpoint.
+  /// Builds the current snapshot, preferring live scheduler state.
+  Map<String, dynamic>? _readSnapshot() {
+    final scheduler = _scheduler;
+    if (scheduler != null) {
+      return RuntimeSnapshot.fromScheduler(scheduler).toJson();
+    }
+    final file = File(runtimePath);
+    if (!file.existsSync()) return null;
+    try {
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (_) {
+      // Fall through; return null.
+    }
+    return null;
+  }
+
+  shelf.Response _handleV1State(shelf.Request request) {
+    final snapshot = _readSnapshot();
+    if (snapshot == null) {
+      return shelf.Response.ok(
+        jsonEncode(<String, dynamic>{
+          'generated_at': DateTime.now().toIso8601String(),
+          'counts': <String, int>{
+            'running': 0,
+            'retrying': 0,
+            'claimed': 0,
+            'completed': 0,
+          },
+          'running': <dynamic>[],
+          'retrying': <dynamic>[],
+          'claimed': <dynamic>[],
+          'completed': <dynamic>[],
+          'codex_totals': <String, dynamic>{
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'total_tokens': 0,
+            'seconds_running': 0,
+          },
+          'rate_limits': null,
+          'recent_events': <dynamic>[],
+          'validation_errors': <dynamic>[],
+        }),
+        headers: <String, String>{'Content-Type': 'application/json'},
+      );
+    }
+    return shelf.Response.ok(
+      jsonEncode(snapshot),
+      headers: <String, String>{'Content-Type': 'application/json'},
+    );
+  }
+
+  shelf.Response _handleV1Issue(shelf.Request request, String identifier) {
+    final snapshot = _readSnapshot();
+    if (snapshot == null) {
+      return shelf.Response.notFound(
+        jsonEncode(<String, dynamic>{
+          'error': <String, String>{
+            'code': 'snapshot_unavailable',
+            'message': 'Runtime snapshot is not available.',
+          },
+        }),
+        headers: <String, String>{'Content-Type': 'application/json'},
+      );
+    }
+    final running =
+        (snapshot['running'] as List<dynamic>?) ?? const <dynamic>[];
+    final match = running
+        .whereType<Map<String, dynamic>>()
+        .cast<Map<String, dynamic>?>()
+        .firstWhere(
+          (e) => e?['issue_identifier'] == identifier,
+          orElse: () => null,
+        );
+    if (match == null) {
+      return shelf.Response.notFound(
+        jsonEncode(<String, dynamic>{
+          'error': <String, String>{
+            'code': 'issue_not_found',
+            'message': 'Issue $identifier is not currently tracked.',
+          },
+        }),
+        headers: <String, String>{'Content-Type': 'application/json'},
+      );
+    }
+    return shelf.Response.ok(
+      jsonEncode(match),
+      headers: <String, String>{'Content-Type': 'application/json'},
+    );
+  }
+
+  Future<shelf.Response> _handleV1Refresh(shelf.Request request) async {
+    final scheduler = _scheduler;
+    if (scheduler == null) {
+      return shelf.Response(
+        503,
+        body: jsonEncode(<String, dynamic>{
+          'error': <String, String>{
+            'code': 'scheduler_not_attached',
+            'message': 'Refresh requires a live scheduler.',
+          },
+        }),
+        headers: <String, String>{'Content-Type': 'application/json'},
+      );
+    }
+    unawaited(scheduler.requestImmediateTick());
+    return shelf.Response(
+      202,
+      body: jsonEncode(<String, dynamic>{
+        'queued': true,
+        'coalesced': false,
+        'requested_at': DateTime.now().toIso8601String(),
+        'operations': <String>['poll', 'reconcile'],
+      }),
+      headers: <String, String>{'Content-Type': 'application/json'},
+    );
+  }
+
   shelf.Response _handleAgentsApi(shelf.Request request) {
-    final statusFile = File('.spectra/AGENTS.json');
+    final statusFile = File(legacyAgentsPath);
     if (!statusFile.existsSync()) {
       return shelf.Response.ok(
-        jsonEncode({'agents': <dynamic>[], 'running': false}),
-        headers: {'Content-Type': 'application/json'},
+        jsonEncode(<String, dynamic>{
+          'agents': <dynamic>[],
+          'running': false,
+          'deprecation':
+              'AGENTS.json is deprecated. Read /api/v1/state instead.',
+        }),
+        headers: <String, String>{'Content-Type': 'application/json'},
       );
     }
 
@@ -93,8 +251,11 @@ class DashboardService {
       final decoded = jsonDecode(content);
       if (decoded is! List) {
         return shelf.Response.ok(
-          jsonEncode({'agents': <dynamic>[], 'running': false}),
-          headers: {'Content-Type': 'application/json'},
+          jsonEncode(<String, dynamic>{
+            'agents': <dynamic>[],
+            'running': false,
+          }),
+          headers: <String, String>{'Content-Type': 'application/json'},
         );
       }
 
@@ -104,32 +265,29 @@ class DashboardService {
           .toList();
 
       return shelf.Response.ok(
-        jsonEncode({'agents': agents, 'running': true}),
-        headers: {'Content-Type': 'application/json'},
+        jsonEncode(<String, dynamic>{'agents': agents, 'running': true}),
+        headers: <String, String>{'Content-Type': 'application/json'},
       );
     } catch (e) {
       return shelf.Response.ok(
-        jsonEncode({
+        jsonEncode(<String, dynamic>{
           'agents': <dynamic>[],
           'running': false,
           'error': e.toString(),
         }),
-        headers: {'Content-Type': 'application/json'},
+        headers: <String, String>{'Content-Type': 'application/json'},
       );
     }
   }
 
-  /// Handles the /api/project endpoint.
   shelf.Response _handleProjectApi(shelf.Request request) {
     final data = <String, dynamic>{};
 
-    // Read PROJECT.md for project info
     final projectFile = File('.spectra/PROJECT.md');
     if (projectFile.existsSync()) {
       data['project'] = projectFile.readAsStringSync();
     }
 
-    // Read ROADMAP.md for progress
     final roadmapFile = File('.spectra/ROADMAP.md');
     if (roadmapFile.existsSync()) {
       final content = roadmapFile.readAsStringSync();
@@ -137,7 +295,7 @@ class DashboardService {
 
       final totalTasks = RegExp(r'- \[( |x)\]').allMatches(content).length;
       final completedTasks = RegExp(r'- \[x\]').allMatches(content).length;
-      data['progress'] = {
+      data['progress'] = <String, num>{
         'total': totalTasks,
         'completed': completedTasks,
         'percent': totalTasks == 0
@@ -146,7 +304,6 @@ class DashboardService {
       };
     }
 
-    // Read PLAN.md for current tasks
     final planFile = File('.spectra/PLAN.md');
     if (planFile.existsSync()) {
       data['plan'] = planFile.readAsStringSync();
@@ -154,17 +311,14 @@ class DashboardService {
 
     return shelf.Response.ok(
       jsonEncode(data),
-      headers: {'Content-Type': 'application/json'},
+      headers: <String, String>{'Content-Type': 'application/json'},
     );
   }
 
-  /// Handles the dashboard HTML page using Jaspr components.
   Future<shelf.Response> _handleDashboard(shelf.Request request) async {
-    // Load current data
     final agents = _loadAgents();
     final progress = _loadProgress();
 
-    // Create the Jaspr component
     final dashboardComponent = DashboardPage(
       agents: agents,
       projectProgress: progress.percent,
@@ -172,26 +326,20 @@ class DashboardService {
       completedTasks: progress.completed,
     );
 
-    // Render the component to HTML using Jaspr's renderComponent
-    // renderComponent returns ResponseLike = ({int statusCode, Uint8List body, Map<String, List<String>> headers})
     final rendered = await renderComponent(
       dashboardComponent,
       standalone: true,
     );
 
-    // Convert the body bytes to string
     final bodyHtml = utf8.decode(rendered.body);
-
-    // Wrap in a full HTML document with our custom styles and auto-refresh
     final fullHtml = _wrapInDocument(bodyHtml, isRunning: agents.isNotEmpty);
 
     return shelf.Response.ok(
       fullHtml,
-      headers: {'Content-Type': 'text/html; charset=utf-8'},
+      headers: <String, String>{'Content-Type': 'text/html; charset=utf-8'},
     );
   }
 
-  /// Wraps the Jaspr-rendered body in a complete HTML document.
   String _wrapInDocument(String bodyHtml, {required bool isRunning}) {
     return '''
 <!DOCTYPE html>
@@ -205,12 +353,10 @@ class DashboardService {
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
-    
     .status-working span:first-child {
       animation: pulse 2s infinite;
     }
@@ -219,7 +365,6 @@ class DashboardService {
 <body>
 $bodyHtml
 <script>
-  // Auto-refresh every 2 seconds
   setTimeout(function() { window.location.reload(); }, 2000);
 </script>
 </body>
@@ -227,26 +372,24 @@ $bodyHtml
 ''';
   }
 
-  /// Loads agent states from the status file.
   List<AgentState> _loadAgents() {
-    final statusFile = File('.spectra/AGENTS.json');
-    if (!statusFile.existsSync()) return [];
+    final statusFile = File(legacyAgentsPath);
+    if (!statusFile.existsSync()) return <AgentState>[];
 
     try {
       final content = statusFile.readAsStringSync();
       final decoded = jsonDecode(content);
-      if (decoded is! List) return [];
+      if (decoded is! List) return <AgentState>[];
 
       return decoded
           .cast<Map<String, dynamic>>()
           .map((j) => AgentState.fromJson(j))
           .toList();
     } catch (e) {
-      return [];
+      return <AgentState>[];
     }
   }
 
-  /// Loads project progress from ROADMAP.md.
   ({int completed, int total, int percent}) _loadProgress() {
     final roadmapFile = File('.spectra/ROADMAP.md');
     if (!roadmapFile.existsSync()) {

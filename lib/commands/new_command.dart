@@ -110,5 +110,44 @@ $description
 
     final issuesFile = File('.spectra/ISSUES.md');
     issuesFile.writeAsStringSync('# ISSUES\n\nNo issues yet.');
+
+    final workflowFile = File('WORKFLOW.md');
+    if (!workflowFile.existsSync()) {
+      workflowFile.writeAsStringSync(_defaultWorkflow(name));
+    }
+  }
+
+  String _defaultWorkflow(String projectName) {
+    return '''
+---
+tracker:
+  kind: local_plan
+polling:
+  interval_ms: 30000
+workspace:
+  root: .spectra/workspaces
+agent:
+  runner: llm
+  max_concurrent_agents: 2
+  max_turns: 10
+hooks:
+  before_run: |
+    git fetch --all --quiet || true
+---
+You are working on {{ issue.identifier }} for $projectName.
+
+## Issue
+{{ issue.title }}
+
+{{ issue.description }}
+
+## Instructions
+- Implement the change end-to-end inside the workspace.
+- Run any verification steps documented in the issue description.
+- Return the full content of each modified file wrapped in
+  `<file_content path="path/to/file"> ... </file_content>` tags relative to
+  the workspace root.
+- Do not write outside the workspace.
+''';
   }
 }

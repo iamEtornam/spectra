@@ -1,6 +1,6 @@
 name: spectra_cli
 description: A Multi-LLM Spec-Driven Development System.
-version: 0.1.5
+version: 0.2.0
 homepage: https://github.com/iamEtornam/spectra
 
 environment:
@@ -12,12 +12,14 @@ dependencies:
   http: ^1.1.0
   yaml: ^3.1.2
   mason_logger: ^0.3.3
+  meta: ^1.16.0
   xml: ^6.4.2
   crypto: ^3.0.3
   shelf: ^1.4.1
   shelf_router: ^1.1.4
   jaspr: ^0.22.1
   path: ^1.9.0
+  watcher: ^1.2.1
 
 dev_dependencies:
   lints: ^6.0.0

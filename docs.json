@@ -7,8 +7,17 @@
     ["Home", "/"],
     ["Getting Started", "/getting-started"],
     ["Core Concepts", "/core-concepts"],
+    ["Context Engineering", "/context-engineering"],
+    ["Execution Modes", "/execution-modes"],
+    ["LLM Usage Types", "/llm-usage-types"],
+    ["Orchestration", "/orchestration"],
+    ["Architecture: LLM Separation", "/architecture-llm-separation"],
     ["CLI Commands", "/commands"],
-    ["Multi-Agent Orchestrator", "/orchestrator"]
+    ["Multi-Agent Orchestrator", "/orchestrator"],
+    ["Security", "/security"],
+    ["Testing", "/testing"],
+    ["Migration Guide v0.1.5", "/migration-guide-v0.1.5"],
+    ["Symphony Adaptation Plan", "/symphony-adaptation-plan"]
   ],
   "navigation": [
     { "title": "GitHub", "url": "https://github.com/iamEtornam/spectra" }

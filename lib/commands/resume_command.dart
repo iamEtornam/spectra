@@ -22,21 +22,35 @@ class ResumeCommand extends SpectraCommand {
 
     logger.info('Analyzing session state...');
 
-    // In a real implementation, we would track task status in STATE.md or PLAN.md
-    // For now, we'll look for tasks in PLAN.md and ask the user where to start
+    // Task status lives in PLAN.md: execute stamps status="completed" on each
+    // finished task, so the first task without it is where we pick up.
     final content = planFile.readAsStringSync();
-    final taskRegex = RegExp(r'<task id="(.*?)".*?><n>(.*?)</n>', dotAll: true);
-    final matches = taskRegex.allMatches(content).toList();
+    final taskRegex = RegExp(r'<task\b[^>]*>', dotAll: true);
+    final tasks = taskRegex.allMatches(content).toList();
 
-    if (matches.isEmpty) {
+    if (tasks.isEmpty) {
       logger.warn('No tasks found in current plan.');
       return;
     }
 
-    logger.info('Found ${matches.length} tasks in current plan.');
-    logger.info('Picking up from the beginning of the current PLAN.md...');
+    final completed = tasks
+        .where((m) => m.group(0)!.contains('status="completed"'))
+        .length;
+    final remaining = tasks.length - completed;
 
-    // Delegate to ExecuteCommand
+    if (remaining == 0) {
+      logger.success(
+        'All ${tasks.length} tasks in PLAN.md are already completed.',
+      );
+      return;
+    }
+
+    logger.info(
+      'Found ${tasks.length} tasks: $completed completed, $remaining remaining.',
+    );
+    logger.info('Resuming with the first uncompleted task...');
+
+    // Delegate to ExecuteCommand, which skips completed tasks.
     await ExecuteCommand(logger: logger).run();
   }
 }

@@ -12,6 +12,10 @@ AI-driven development often leads to technical debt, inconsistent patterns, and 
 - 🤖 **Automatic**: AI plans AND implements code
 - 👤 **Manual**: AI plans tasks, YOU implement (NEW in v0.1.5)
 - 🤝 **Interactive**: AI suggests, you review
+- 🎼 **Symphony Mode** (NEW in v0.2.0): drive long-running runs from a
+  repo-owned `WORKFLOW.md`, use a tracker (Linear or local PLAN.md), get
+  per-issue git worktrees, structured retries, and a run-first dashboard at
+  `/api/v1/state`.
 
 THIS is how you build systems that actually last.
 
@@ -85,6 +89,24 @@ The Planner breaks your roadmap into 2–5 atomic tasks. While `spectra execute`
 
 **Monitor in real-time**: While `spectra start` is running, you can use `spectra progress` in another terminal to see the live status of all active agents and their assigned tasks. For a visual experience, run `spectra dashboard` to launch a web-based monitoring UI.
 
+### 5. Symphony Mode (v0.2.0)
+
+When a repo-owned `WORKFLOW.md` is present (scaffolded by `spectra new`), `spectra start` runs the tracker-driven scheduler instead of the legacy convoy:
+
+```yaml
+---
+tracker:
+  kind: local_plan        # default — or `linear` with an API key
+agent:
+  runner: llm
+  max_concurrent_agents: 2
+  max_turns: 10
+---
+You are working on {{ issue.identifier }}. Implement it end-to-end.
+```
+
+Each issue gets an isolated git worktree under `.spectra/workspaces/`, lifecycle hooks, exponential retries, a `proof.md` artifact per run, and a runtime snapshot at `GET /api/v1/state` (or `spectra progress --runs`). Use `spectra start --legacy` to force the classic PLAN.md flow. See [Multi-Agent Orchestrator](doc/orchestrator.md) for the full picture.
+
 ---
 
 ## Use Spectra Your Way
@@ -107,9 +129,11 @@ spectra plan "Features" → spectra execute --manual
 ```
 
 ### 🤝 Interactive Mode
-AI suggests code, you review and approve. Best for production.
+AI suggests code, you review every file before it touches disk. Best for production.
 ```bash
-spectra execute  # Review each file before applying
+spectra execute
+# Per file: [A] Apply as-is · [E] Edit in $EDITOR · [S] Skip · [Q] Quit
+# Per task: [Y] Commit now · [N] Skip commit · [E] Edit message
 ```
 
 **Choose what works for you.** See [Execution Modes](doc/execution-modes.md) for details.
@@ -289,11 +313,11 @@ When `STATE.md` grows too large, Spectra automatically archives older decisions 
 | `new`       | Interactive onboarding to start a new project           |
 | `map`       | Analyze existing repository architecture (Brownfield)   |
 | `plan`      | Break a roadmap phase into atomic XML tasks            |
-| `execute`   | Parse plans, apply changes, and commit to Git (Sequential) |
-| `start`     | Launch the Multi-Agent Orchestrator (Parallel execution) |
-| `dashboard` | Launch web UI for real-time agent monitoring            |
-| `progress`  | CLI dashboard of completed vs. upcoming phases          |
-| `resume`    | Detect interrupted states and pick up where you left off|
+| `execute`   | Parse plans, apply changes, and commit to Git (skips completed tasks; `--manual`/`--auto` override the mode) |
+| `start`     | Launch the orchestrator — Symphony scheduler when `WORKFLOW.md` exists (`--workflow <path>`), legacy convoy with `--legacy` |
+| `dashboard` | Launch web UI for real-time agent monitoring (`--port`, default 3000) |
+| `progress`  | CLI dashboard of completed vs. upcoming phases; `--runs` prints the runtime snapshot |
+| `resume`    | Count completed vs. remaining tasks in `PLAN.md` and continue with the first uncompleted one |
 | `config`    | Set up API keys for Gemini, Claude, OpenAI, Grok, and DeepSeek |
 
 ---
@@ -311,14 +335,20 @@ If you want to define the *what* and have a system you trust handle the *how*—
 Want deeper insights? Check out our comprehensive guides:
 
 **Core Features:**
+- [Getting Started](doc/getting-started.md) - Install and initialize your first project
+- [Core Concepts](doc/core-concepts.md) - The Living Memory and spec-driven flow
 - [Execution Modes](doc/execution-modes.md) - Automatic, Manual, Interactive workflows
 - [LLM Usage Types](doc/llm-usage-types.md) - Provider optimization strategies
 - [Security Features](doc/security.md) - Encryption implementation details
 
 **Technical Deep Dives:**
+- [Multi-Agent Orchestrator](doc/orchestrator.md) - Legacy convoy and the Symphony scheduler
+- [Orchestration Overview](doc/orchestration.md) - How the two orchestration paths fit together
+- [Context Engineering](doc/context-engineering.md) - STATE.md pruning and focused prompts
 - [Architecture](doc/architecture-llm-separation.md) - LLM separation design
 - [Testing Guide](doc/testing.md) - Running and writing tests
 - [Migration Guide](doc/migration-guide-v0.1.5.md) - Upgrading from v0.1.4
+- [Symphony Adaptation Plan](docs/symphony-adaptation-plan.md) - The design behind v0.2.0
 
 ---
 
@@ -326,13 +356,13 @@ Want deeper insights? Check out our comprehensive guides:
 
 Spectra takes security seriously, especially when handling sensitive API keys:
 
-- **Encrypted Storage**: All API keys are encrypted using machine-specific encryption before being stored
+- **Encrypted Storage**: All API keys are encrypted with an XOR stream cipher whose keystream is SHA-256-derived (counter mode), with a random IV per write
 - **No Plain Text**: API keys are never stored in plain YAML or configuration files
-- **Automatic Migration**: Legacy plain-text configs are automatically migrated to encrypted storage on first use
+- **Automatic Migration**: Legacy plain-text configs — and files encrypted by pre-0.2.1 versions — are automatically migrated on first use
 - **Secure Key Derivation**: Encryption keys are derived from system-specific information using PBKDF2 with 10,000 iterations
-- **Local-Only Storage**: All credentials remain on your machine in `~/.spectra/.secure/`
+- **Local-Only Storage**: All credentials remain on your machine in `~/.spectra/.secure/`, which Spectra restricts to `700`/`600` permissions on POSIX systems
 
-Your API keys are as secure as your machine's filesystem permissions.
+See [Security Features](doc/security.md) for the full details and limitations.
 
 ---
 

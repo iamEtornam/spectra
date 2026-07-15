@@ -1,9 +1,25 @@
+import 'dart:io';
 import 'package:test/test.dart';
 import 'package:spectra_cli/services/llm_service.dart';
 import 'package:spectra_cli/models/spectra_config.dart';
+import '../test_helpers.dart';
 
 /// Tests for additional bug fixes in v0.1.5
 void main() {
+  late Directory tempDir;
+
+  setUp(() {
+    tempDir = Directory.systemTemp.createTempSync('spectra_test_');
+    useTestHome(tempDir.path);
+  });
+
+  tearDown(() {
+    resetTestHome();
+    if (tempDir.existsSync()) {
+      tempDir.deleteSync(recursive: true);
+    }
+  });
+
   group('Bug Fix: LLMService Null Home Directory', () {
     test('should handle null home directory validation', () {
       // Since we can't modify Platform.environment in tests,

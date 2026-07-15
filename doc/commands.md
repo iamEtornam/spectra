@@ -25,10 +25,15 @@ The sequential execution engine. It reads `PLAN.md`, executes tasks one by one u
 ## `start`
 **Usage**: `spectra start [options]`
 
-The **Multi-Agent Orchestrator**. Launches a team of agents to process `PLAN.md` in parallel.
+The **Multi-Agent Orchestrator**. If a `WORKFLOW.md` file is present, it runs the Symphony-aligned scheduler; otherwise it launches the legacy team of agents to process `PLAN.md` in parallel.
 
 **Options**:
-- `--workers, -w`: Number of worker agents to spawn (default: `2`).
+- `--workers, -w`: Number of worker agents to spawn in legacy mode (default: `2`).
+- `--workflow`: Path to the `WORKFLOW.md` file (defaults to `./WORKFLOW.md`).
+- `--manual, -m`: Manual mode — show task assignments without generating code.
+- `--legacy`: Force the legacy convoy/`PLAN.md` orchestrator even when `WORKFLOW.md` is present.
+
+Note: `start` has no `--port` option — that belongs to `dashboard`.
 
 ## `dashboard`
 **Usage**: `spectra dashboard [options]`
@@ -45,16 +50,19 @@ Launches a web-based monitoring dashboard at `http://localhost:3000`. This provi
 - Auto-refresh every 2 seconds.
 
 ## `progress`
-**Usage**: `spectra progress`
+**Usage**: `spectra progress [options]`
 
 Provides a CLI dashboard of your project's status, showing completed vs. upcoming phases based on your roadmap and project state. 
+
+**Options**:
+- `--runs`: Print the scheduler's runtime snapshot (Symphony mode) in the terminal.
 
 **Live Monitoring**: If the Multi-Agent Orchestrator (`spectra start`) is currently running, this command also displays a real-time status dashboard of all active agents and the tasks they are currently processing.
 
 ## `resume`
 **Usage**: `spectra resume`
 
-Detects if an execution was interrupted and attempts to pick up exactly where it left off by checking the current state in `PLAN.md`.
+Detects if an execution was interrupted by checking task statuses in `PLAN.md`. It counts tasks already marked `status="completed"` versus those remaining, reports "X completed, Y remaining", and continues execution with the first uncompleted task.
 
 ## `config`
 **Usage**: `spectra config`

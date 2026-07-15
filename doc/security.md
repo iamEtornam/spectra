@@ -9,7 +9,7 @@ When you run `spectra config` and provide your API keys, they are:
 1. **Never stored in plain text**
 2. **Encrypted using machine-specific encryption**
 3. **Stored in a secure directory** (`~/.spectra/.secure/`)
-4. **Protected by filesystem permissions**
+4. **Protected by filesystem permissions** (Spectra sets `700`/`600` on POSIX automatically, best-effort)
 
 ## Encryption Details
 
@@ -30,6 +30,7 @@ These components are combined and processed using:
 ### Encryption Method
 
 - **Algorithm**: XOR-based stream cipher with SHA-256 derived keystream
+- **Keystream**: Counter mode — block N of the keystream is `SHA-256(key || IV || N)`, so the keystream depends on the key, the random IV, and the block counter
 - **Key Size**: 256 bits
 - **IV (Initialization Vector)**: Random 16-byte IV per encryption using `Random.secure()`
 - **Non-Deterministic**: Same data produces different ciphertext each time
@@ -55,15 +56,19 @@ If you're upgrading from an older version of Spectra that stored API keys in pla
 3. **Cleanup**: The legacy `config.yaml` is automatically deleted
 4. **Transparent**: Your API keys continue to work without any manual intervention
 
+### Upgrading from v0.2.0 or Earlier
+
+Older versions used a legacy cipher for `creds.enc`. On first read after upgrading, Spectra decrypts the file with the legacy cipher and transparently re-encrypts it with the current SHA-256 counter-mode scheme — no action needed on your part.
+
 ## Security Best Practices
 
 ### 1. Protect Your Home Directory
 
-Your encrypted API keys are only as secure as your filesystem:
+Your encrypted API keys are only as secure as your filesystem. On POSIX systems (macOS/Linux), Spectra automatically sets `700` on `~/.spectra/.secure` and `600` on the files inside it (best-effort; this is a no-op on Windows). It's still worth verifying manually:
 
 ```bash
-# Ensure your home directory has appropriate permissions
-chmod 700 ~/.spectra
+# Verify the secure directory has appropriate permissions
+chmod 700 ~/.spectra/.secure
 chmod 600 ~/.spectra/.secure/*
 ```
 

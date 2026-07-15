@@ -13,19 +13,21 @@ void main() {
   late Directory tempDir;
 
   setUp(() {
+    tempDir = Directory.systemTemp.createTempSync('spectra_config_cmd_test_');
+    useTestHome(tempDir.path);
+
     mockLogger = MockLogger();
     configService = ConfigService();
     configCommand = ConfigCommand(logger: mockLogger);
-
-    tempDir = Directory.systemTemp.createTempSync('spectra_config_cmd_test_');
 
     // Register fallback values
     registerFallbackValue('');
   });
 
   tearDown(() async {
-    // Cleanup
+    // Cleanup (must run before resetTestHome so it clears the temp home).
     await configService.clearConfig();
+    resetTestHome();
     if (tempDir.existsSync()) {
       tempDir.deleteSync(recursive: true);
     }

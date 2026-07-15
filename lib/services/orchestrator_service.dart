@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:mason_logger/mason_logger.dart';
+import 'package:meta/meta.dart';
 
 import '../agents/base_agent.dart';
 import '../agents/mayor_agent.dart';
@@ -142,7 +143,7 @@ class OrchestratorService {
         await _executeAgentSteps();
 
         if (config.enableStuckRecovery) {
-          _recoverStuckAgents();
+          recoverStuckAgents();
         }
 
         _persistAgentStatus();
@@ -201,13 +202,16 @@ class OrchestratorService {
         logger.warn(
           '[${agent.id}] Releasing task ${agent.currentTaskId} back to pool.',
         );
-        agent.currentTaskId = null;
+        agent.releaseTask();
       }
     }
   }
 
   /// Recovers agents that have been stuck for too long.
-  void _recoverStuckAgents() {
+  ///
+  /// Called from the run loop each tick; visible for testing.
+  @visibleForTesting
+  void recoverStuckAgents() {
     final now = DateTime.now();
 
     for (final agent in _agents) {
@@ -215,10 +219,22 @@ class OrchestratorService {
 
       final inactivityDuration = now.difference(agent.lastActivity);
 
-      if (agent.status == AgentStatus.working &&
-          inactivityDuration > config.stuckThreshold) {
+      // Recover agents this pass detects as stuck AND agents the Witness
+      // already flipped to `stuck` earlier in the same tick — otherwise a
+      // witnessed agent is never released back to idle.
+      final witnessMarked = agent.status == AgentStatus.stuck;
+      final needsRecovery =
+          witnessMarked ||
+          (agent.status == AgentStatus.working &&
+              inactivityDuration > config.stuckThreshold);
+
+      if (needsRecovery) {
+        // updateStatus(stuck) refreshes lastActivity, so the recomputed
+        // duration is meaningless for Witness-marked agents.
         logger.warn(
-          '[${agent.id}] Detected as stuck (inactive for ${inactivityDuration.inMinutes}min). Recovering...',
+          witnessMarked
+              ? '[${agent.id}] Marked stuck by Witness. Recovering...'
+              : '[${agent.id}] Detected as stuck (inactive for ${inactivityDuration.inMinutes}min). Recovering...',
         );
         agent.updateStatus(AgentStatus.stuck);
 
@@ -227,7 +243,7 @@ class OrchestratorService {
           logger.warn(
             '[${agent.id}] Releasing task ${agent.currentTaskId} for reassignment.',
           );
-          agent.currentTaskId = null;
+          agent.releaseTask();
         }
 
         // Reset to idle so it can pick up new work
@@ -268,8 +284,17 @@ class OrchestratorService {
   }
 
   /// Persists current agent status to disk for monitoring.
+  ///
+  /// Writes both the legacy `.spectra/AGENTS.json` (kept for one release for
+  /// backward compatibility with older dashboards) and the new
+  /// `.spectra/RUNTIME.json` snapshot consumed by the run-first dashboard.
   void _persistAgentStatus() {
     try {
+      final spectraDir = Directory('.spectra');
+      if (!spectraDir.existsSync()) {
+        spectraDir.createSync(recursive: true);
+      }
+
       final statusFile = File('.spectra/AGENTS.json');
       final data = _agents.map((a) {
         final state = a.state.toJson();
@@ -277,8 +302,57 @@ class OrchestratorService {
         return state;
       }).toList();
       statusFile.writeAsStringSync(jsonEncode(data));
+
+      final runtimeFile = File('.spectra/RUNTIME.json');
+      final runtime = <String, dynamic>{
+        'generated_at': DateTime.now().toIso8601String(),
+        'mode': 'legacy_orchestrator',
+        'counts': <String, int>{
+          'running': _agents
+              .where((a) => a.status == AgentStatus.working)
+              .length,
+          'retrying': 0,
+          'claimed': _agents.where((a) => a.currentTaskId != null).length,
+          'completed': _taskHistory.values.fold<int>(
+            0,
+            (acc, list) => acc + list.length,
+          ),
+        },
+        'running': _agents
+            .where((a) => a.currentTaskId != null)
+            .map(
+              (a) => <String, dynamic>{
+                'issue_id': a.currentTaskId,
+                'issue_identifier': 'TASK-${a.currentTaskId}',
+                'state': a.status.name,
+                'workspace_path': '',
+                'started_at': a.lastActivity.toIso8601String(),
+                'attempt': <String, dynamic>{
+                  'phase': a.status.name,
+                  'attempt': 1,
+                },
+              },
+            )
+            .toList(),
+        'retrying': const <dynamic>[],
+        'claimed': _agents
+            .where((a) => a.currentTaskId != null)
+            .map((a) => a.currentTaskId)
+            .toList(),
+        'completed': _taskHistory.values.expand((e) => e).toList(),
+        'codex_totals': const <String, dynamic>{
+          'input_tokens': 0,
+          'output_tokens': 0,
+          'total_tokens': 0,
+          'seconds_running': 0,
+        },
+        'rate_limits': null,
+        'recent_events': const <dynamic>[],
+        'validation_errors': const <dynamic>[],
+      };
+      runtimeFile.writeAsStringSync(jsonEncode(runtime));
     } catch (e) {
-      // Ignore persistence errors
+      // Ignore persistence errors.
     }
   }
 
@@ -289,6 +363,10 @@ class OrchestratorService {
     final statusFile = File('.spectra/AGENTS.json');
     if (statusFile.existsSync()) {
       statusFile.deleteSync();
+    }
+    final runtimeFile = File('.spectra/RUNTIME.json');
+    if (runtimeFile.existsSync()) {
+      runtimeFile.deleteSync();
     }
 
     logger.info('Orchestrator stopped.');
@@ -344,6 +422,10 @@ class OrchestratorService {
 
   /// Gets all registered agents.
   List<SpectraAgent> getAllAgents() => List.unmodifiable(_agents);
+
+  /// Registers an agent directly, bypassing [start]. Test seam only.
+  @visibleForTesting
+  void addAgent(SpectraAgent agent) => _agents.add(agent);
 
   /// Gets agents filtered by role.
   List<SpectraAgent> getAgentsByRole(AgentRole role) {

@@ -14,9 +14,15 @@ class ConfigService {
 
   final _secureStorage = SecureStorageService();
 
+  /// Overrides the base directory used for config (normally `$HOME`).
+  /// Intended for tests so they don't touch the real `~/.spectra`.
+  static String? homeOverride;
+
   File get _configFile {
     final home =
-        Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+        homeOverride ??
+        Platform.environment['HOME'] ??
+        Platform.environment['USERPROFILE'];
     if (home == null) {
       throw StateError(
         'Unable to determine home directory. Neither HOME nor USERPROFILE environment variables are set.',

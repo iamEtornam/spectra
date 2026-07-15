@@ -1,0 +1,6 @@
+# Suites run one at a time: several command/e2e suites mutate the
+# process-global Directory.current, which races across concurrently running
+# suite isolates (observed as flaky "PLAN.md not found" failures in CI).
+# Upgrade path: inject a base directory into the commands instead of relying
+# on cwd, then remove this cap.
+concurrency: 1

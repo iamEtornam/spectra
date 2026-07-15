@@ -142,7 +142,7 @@ class User {
 Options:
   [A] Apply as-is
   [E] Edit suggestion
-  [S] Skip task
+  [S] Skip
   [Q] Quit
 
 > A

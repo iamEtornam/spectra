@@ -350,8 +350,8 @@ Coding: DeepSeek (deepseek-v3.2)
 If you encounter issues during migration:
 
 ```bash
-# Check logs
-spectra progress --verbose
+# Check status
+spectra progress
 
 # Clear and reconfigure
 rm -rf ~/.spectra/.secure

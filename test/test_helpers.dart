@@ -3,9 +3,26 @@ import 'package:mason_logger/mason_logger.dart';
 import 'package:spectra_cli/core/llm_provider.dart';
 import 'package:spectra_cli/services/llm_service.dart';
 import 'package:spectra_cli/services/config_service.dart';
+import 'package:spectra_cli/services/secure_storage_service.dart';
 import 'package:spectra_cli/models/spectra_config.dart';
 
 /// Mock implementations for testing
+
+/// Points every home-directory-based service at [dir] so tests read and
+/// write an isolated `.spectra` instead of the real `~/.spectra`. Also
+/// makes the suite safe to run with test files in parallel.
+void useTestHome(String dir) {
+  SecureStorageService.homeOverride = dir;
+  ConfigService.homeOverride = dir;
+  LLMService.homeOverride = dir;
+}
+
+/// Undoes [useTestHome].
+void resetTestHome() {
+  SecureStorageService.homeOverride = null;
+  ConfigService.homeOverride = null;
+  LLMService.homeOverride = null;
+}
 
 class MockLogger extends Mock implements Logger {}
 
@@ -28,6 +45,9 @@ class FakeLLMProvider implements LLMProvider {
 
   @override
   String get name => _name;
+
+  @override
+  String get model => 'fake-model-1';
 
   @override
   List<String> get availableModels => ['fake-model-1', 'fake-model-2'];
